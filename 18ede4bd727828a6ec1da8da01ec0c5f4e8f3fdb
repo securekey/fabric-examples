@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5a2585a7_2d0f8de3",
+        "filename": "fabric-sdk-go/fabric-cli/fixtures/config/config_test.yaml",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1000038
+      },
+      "writtenOn": "2017-05-25T16:14:31Z",
+      "side": 1,
+      "message": "Point to fabric-cli fixtures?",
+      "revId": "18ede4bd727828a6ec1da8da01ec0c5f4e8f3fdb",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    }
+  ]
+}
