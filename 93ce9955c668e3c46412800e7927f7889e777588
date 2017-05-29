@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5a2585a7_905e9a11",
+        "filename": "fabric-cli/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 1000023
+      },
+      "writtenOn": "2017-05-29T14:57:38Z",
+      "side": 1,
+      "message": "Add a note on compatibility level (1.0.0-alpha)",
+      "range": {
+        "startLine": 34,
+        "startChar": 17,
+        "endLine": 34,
+        "endChar": 19
+      },
+      "revId": "93ce9955c668e3c46412800e7927f7889e777588",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5a2585a7_b06196d5",
+        "filename": "fabric-cli/common/utils.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 1000023
+      },
+      "writtenOn": "2017-05-29T14:57:38Z",
+      "side": 1,
+      "message": "This comment is not correct. The method is returning client\u0027s serialized identity, not enrolment certificate. Perhaps rename the method to GetSigningIdentity, to be in line with Node SDK\u0027s implementation of Identity (which we might emulate in the future)",
+      "range": {
+        "startLine": 47,
+        "startChar": 0,
+        "endLine": 47,
+        "endChar": 2
+      },
+      "revId": "93ce9955c668e3c46412800e7927f7889e777588",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    }
+  ]
+}
