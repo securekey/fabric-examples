@@ -17,17 +17,15 @@ limitations under the License.
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"time"
-
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	cb "github.com/hyperledger/fabric/protos/common"
-
-	"errors"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/hyperledger/fabric/common/crypto"
+	cb "github.com/hyperledger/fabric/protos/common"
+	pb "github.com/hyperledger/fabric/protos/peer"
 )
 
 // MarshalOrPanic serializes a protobuf message and panics if this operation fails.
@@ -44,19 +42,19 @@ func Marshal(pb proto.Message) ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
-// CreateNonceOrPanic generates a nonce using the crypto/primitives package
+// CreateNonceOrPanic generates a nonce using the common/crypto package
 // and panics if this operation fails.
 func CreateNonceOrPanic() []byte {
-	nonce, err := primitives.GetRandomNonce()
+	nonce, err := crypto.GetRandomNonce()
 	if err != nil {
 		panic(fmt.Errorf("Cannot generate random nonce: %s", err))
 	}
 	return nonce
 }
 
-// CreateNonce generates a nonce using the crypto/primitives package.
+// CreateNonce generates a nonce using the common/crypto package.
 func CreateNonce() ([]byte, error) {
-	nonce, err := primitives.GetRandomNonce()
+	nonce, err := crypto.GetRandomNonce()
 	if err != nil {
 		return nil, fmt.Errorf("Cannot generate random nonce: %s", err)
 	}
@@ -140,6 +138,10 @@ func ExtractEnvelopeOrPanic(block *cb.Block, index int) *cb.Envelope {
 
 // ExtractEnvelope retrieves the requested envelope from a given block and unmarshals it.
 func ExtractEnvelope(block *cb.Block, index int) (*cb.Envelope, error) {
+	if block.Data == nil {
+		return nil, fmt.Errorf("No data in block")
+	}
+
 	envelopeCount := len(block.Data.Data)
 	if index < 0 || index >= envelopeCount {
 		return nil, fmt.Errorf("Envelope index out of bounds")
@@ -247,4 +249,40 @@ func UnmarshalChannelHeader(bytes []byte) (*cb.ChannelHeader, error) {
 	}
 
 	return chdr, nil
+}
+
+// UnmarshalChaincodeID returns a ChaincodeID from bytes
+func UnmarshalChaincodeID(bytes []byte) (*pb.ChaincodeID, error) {
+	ccid := &pb.ChaincodeID{}
+	err := proto.Unmarshal(bytes, ccid)
+	if err != nil {
+		return nil, fmt.Errorf("UnmarshalChaincodeID failed, err %s", err)
+	}
+
+	return ccid, nil
+}
+
+// IsConfigBlock validates whenever given block contains configuration
+// update transaction
+func IsConfigBlock(block *cb.Block) bool {
+	envelope, err := ExtractEnvelope(block, 0)
+	if err != nil {
+		return false
+	}
+
+	payload, err := GetPayload(envelope)
+	if err != nil {
+		return false
+	}
+
+	if payload.Header == nil {
+		return false
+	}
+
+	hdr, err := UnmarshalChannelHeader(payload.Header.ChannelHeader)
+	if err != nil {
+		return false
+	}
+
+	return cb.HeaderType(hdr.Type) == cb.HeaderType_CONFIG
 }

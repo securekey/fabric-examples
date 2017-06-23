@@ -17,10 +17,12 @@ limitations under the License.
 package lib
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/tls"
+	"github.com/hyperledger/fabric/bccsp/factory"
 )
 
 // ClientConfig is the fabric-ca client's config
@@ -32,6 +34,10 @@ type ClientConfig struct {
 	Enrollment api.EnrollmentRequest
 	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
+	Revoke     api.RevocationRequest
+	CAInfo     api.GetCAInfoRequest
+	CAName     string               `help:"Name of CA"`
+	CSP        *factory.FactoryOpts `mapstructure:"bccsp"`
 }
 
 // Enroll a client given the server's URL and the client's home directory.
@@ -49,6 +55,15 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 		c.Enrollment.Secret = secret
 		purl.User = nil
 	}
+	if c.Enrollment.Name == "" {
+		expecting := fmt.Sprintf(
+			"%s://<enrollmentID>:<secret>@%s",
+			purl.Scheme, purl.Host)
+		return nil, fmt.Errorf(
+			"The URL of the fabric CA server is missing the enrollment ID and secret;"+
+				" found '%s' but expecting '%s'", rawurl, expecting)
+	}
+	c.Enrollment.CAName = c.CAName
 	c.URL = purl.String()
 	c.TLS.Enabled = purl.Scheme == "https"
 	c.Enrollment.CSR = &c.CSR

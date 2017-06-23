@@ -47,13 +47,32 @@ func (r *resources) ChannelConfig() config.Channel {
 }
 
 // OrdererConfig returns the api.OrdererConfig for the chain
-func (r *resources) OrdererConfig() config.Orderer {
-	return r.configRoot.Orderer()
+func (r *resources) OrdererConfig() (config.Orderer, bool) {
+	result := r.configRoot.Orderer()
+	if result == nil {
+		return nil, false
+	}
+	return result, true
 }
 
 // ApplicationConfig returns the api.ApplicationConfig for the chain
-func (r *resources) ApplicationConfig() config.Application {
-	return r.configRoot.Application()
+func (r *resources) ApplicationConfig() (config.Application, bool) {
+	result := r.configRoot.Application()
+	if result == nil {
+		return nil, false
+	}
+	return result, true
+}
+
+// ConsortiumsConfig returns the api.ConsortiumsConfig for the chain and whether or not
+// this channel contains consortiums config
+func (r *resources) ConsortiumsConfig() (config.Consortiums, bool) {
+	result := r.configRoot.Consortiums()
+	if result == nil {
+		return nil, false
+	}
+
+	return result, true
 }
 
 // MSPManager returns the msp.MSPManager for the chain

@@ -38,7 +38,7 @@ func (c *configSet) verifyReadSet(readSet map[string]comparable) error {
 	return nil
 }
 
-func computeDeltaSet(readSet, writeSet map[string]comparable) map[string]comparable {
+func ComputeDeltaSet(readSet, writeSet map[string]comparable) map[string]comparable {
 	result := make(map[string]comparable)
 	for key, value := range writeSet {
 		readVal, ok := readSet[key]
@@ -55,6 +55,10 @@ func computeDeltaSet(readSet, writeSet map[string]comparable) map[string]compara
 }
 
 func (cm *configManager) verifyDeltaSet(deltaSet map[string]comparable, signedData []*cb.SignedData) error {
+	if len(deltaSet) == 0 {
+		return fmt.Errorf("Delta set was empty.  Update would have no effect.")
+	}
+
 	for key, value := range deltaSet {
 		existing, ok := cm.current.configMap[key]
 		if !ok {
@@ -107,7 +111,7 @@ func (cm *configManager) authorizeUpdate(configUpdateEnv *cb.ConfigUpdateEnvelop
 		return nil, fmt.Errorf("Update not for correct channel: %s for %s", configUpdate.ChannelId, cm.current.channelID)
 	}
 
-	readSet, err := mapConfig(configUpdate.ReadSet)
+	readSet, err := MapConfig(configUpdate.ReadSet)
 	if err != nil {
 		return nil, fmt.Errorf("Error mapping ReadSet: %s", err)
 	}
@@ -116,12 +120,12 @@ func (cm *configManager) authorizeUpdate(configUpdateEnv *cb.ConfigUpdateEnvelop
 		return nil, fmt.Errorf("Error validating ReadSet: %s", err)
 	}
 
-	writeSet, err := mapConfig(configUpdate.WriteSet)
+	writeSet, err := MapConfig(configUpdate.WriteSet)
 	if err != nil {
 		return nil, fmt.Errorf("Error mapping WriteSet: %s", err)
 	}
 
-	deltaSet := computeDeltaSet(readSet, writeSet)
+	deltaSet := ComputeDeltaSet(readSet, writeSet)
 	signedData, err := configUpdateEnv.AsSignedData()
 	if err != nil {
 		return nil, err
