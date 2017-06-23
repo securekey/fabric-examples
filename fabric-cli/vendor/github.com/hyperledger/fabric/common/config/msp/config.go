@@ -54,7 +54,7 @@ func (bh *MSPConfigHandler) BeginConfig(tx interface{}) {
 	defer bh.pendingLock.Unlock()
 	_, ok := bh.pendingConfig[tx]
 	if ok {
-		panic("Programming error, called BeginConfig mulitply for the same tx")
+		panic("Programming error, called BeginConfig multiply for the same tx")
 	}
 	bh.pendingConfig[tx] = &mspConfigStore{
 		idMap: make(map[string]*pendingMSPConfig),
@@ -74,7 +74,7 @@ func (bh *MSPConfigHandler) CommitProposals(tx interface{}) {
 	defer bh.pendingLock.Unlock()
 	pendingConfig, ok := bh.pendingConfig[tx]
 	if !ok {
-		panic("Programming error, called BeginConfig mulitply for the same tx")
+		panic("Programming error, called BeginConfig multiply for the same tx")
 	}
 
 	bh.MSPManager = pendingConfig.proposedMgr
@@ -87,7 +87,7 @@ func (bh *MSPConfigHandler) ProposeMSP(tx interface{}, mspConfig *mspprotos.MSPC
 	pendingConfig, ok := bh.pendingConfig[tx]
 	bh.pendingLock.RUnlock()
 	if !ok {
-		panic("Programming error, called BeginConfig mulitply for the same tx")
+		panic("Programming error, called BeginConfig multiply for the same tx")
 	}
 
 	// check that the type for that MSP is supported
@@ -108,10 +108,7 @@ func (bh *MSPConfigHandler) ProposeMSP(tx interface{}, mspConfig *mspprotos.MSPC
 	}
 
 	// add the MSP to the map of pending MSPs
-	mspID, err := mspInst.GetIdentifier()
-	if err != nil {
-		return nil, fmt.Errorf("Could not extract msp identifier, err %s", err)
-	}
+	mspID, _ := mspInst.GetIdentifier()
 
 	existingPendingMSPConfig, ok := pendingConfig.idMap[mspID]
 	if ok && !reflect.DeepEqual(existingPendingMSPConfig.mspConfig, mspConfig) {

@@ -26,15 +26,16 @@ Events:
 - Listen CC - Listens for chaincode events for a specified chaincode
 
 ## Running
+Navigate to folder cmd/fabric-cli:
 
-go run fabriccli.go <command> <sub-command> [options]
+go run fabric-cli.go <command> <sub-command> [options]
 
 To display the available commands/options:
 
-go run fabriccli.go
+go run fabric-cli.go
 
 ## Compatability
 
 This example is compatible with the following Hyperledger Fabric commit levels:
-- fabric: v1.0.0-alpha
-- fabric-ca: v1.0.0-alpha
+- fabric: v1.0.0-beta
+- fabric-ca: v1.0.0-beta
