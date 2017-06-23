@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5a2585a7_4a9e3258",
+        "filename": "fabric-cli/README.md",
+        "patchSetId": 1
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2017-06-23T18:39:29Z",
+      "side": 1,
+      "message": "the file is renamed.",
+      "range": {
+        "startLine": 31,
+        "startChar": 7,
+        "endLine": 31,
+        "endChar": 19
+      },
+      "revId": "c730db7ebba30db124ac7577906a745225b46d89",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5a2585a7_6a99ee6d",
+        "filename": "fabric-cli/README.md",
+        "patchSetId": 1
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2017-06-23T18:39:29Z",
+      "side": 1,
+      "message": "need to run go build prior to go run (otherwise you get an undefined function)",
+      "range": {
+        "startLine": 31,
+        "startChar": 0,
+        "endLine": 31,
+        "endChar": 6
+      },
+      "revId": "c730db7ebba30db124ac7577906a745225b46d89",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5a2585a7_8a941a38",
+        "filename": "fabric-cli/README.md",
+        "patchSetId": 1
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2017-06-23T18:39:29Z",
+      "side": 1,
+      "message": "the file is renamed",
+      "range": {
+        "startLine": 35,
+        "startChar": 7,
+        "endLine": 35,
+        "endChar": 19
+      },
+      "revId": "c730db7ebba30db124ac7577906a745225b46d89",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    }
+  ]
+}
