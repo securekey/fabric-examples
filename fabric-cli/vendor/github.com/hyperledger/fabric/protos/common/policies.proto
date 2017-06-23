@@ -16,9 +16,10 @@ limitations under the License.
 
 syntax = "proto3";
 
-import "common/msp_principal.proto";
+import "msp/msp_principal.proto";
 
 option go_package = "github.com/hyperledger/fabric/protos/common";
+option java_package = "org.hyperledger.fabric.protos.common";
 
 package common;
 
@@ -32,13 +33,13 @@ message Policy {
         IMPLICIT_META = 3;
     }
     int32 type = 1; // For outside implementors, consider the first 1000 types reserved, otherwise one of PolicyType
-    bytes policy = 2;
+    bytes value = 2;
 }
 
 // SignaturePolicyEnvelope wraps a SignaturePolicy and includes a version for future enhancements
 message SignaturePolicyEnvelope {
     int32 version = 1;
-    SignaturePolicy policy = 2;
+    SignaturePolicy rule = 2;
     repeated MSPPrincipal identities = 3;
 }
 
@@ -50,8 +51,8 @@ message SignaturePolicyEnvelope {
 // and will be the CA for more traditional certificates
 message SignaturePolicy {
     message NOutOf {
-        int32 N = 1;
-        repeated SignaturePolicy policies = 2;
+        int32 n = 1;
+        repeated SignaturePolicy rules = 2;
     }
     oneof Type {
         int32 signed_by = 1;

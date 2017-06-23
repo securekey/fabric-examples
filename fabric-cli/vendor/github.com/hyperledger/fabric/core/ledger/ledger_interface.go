@@ -24,8 +24,10 @@ import (
 
 // PeerLedgerProvider provides handle to ledger instances
 type PeerLedgerProvider interface {
-	// Create creates a new ledger with a given unique id
-	Create(ledgerID string) (PeerLedger, error)
+	// Create creates a new ledger with the given genesis block.
+	// This function guarantees that the creation of ledger and committing the genesis block would an atomic action
+	// The chain id retrieved from the genesis block is treated as a ledger id
+	Create(genesisBlock *common.Block) (PeerLedger, error)
 	// Open opens an already created ledger
 	Open(ledgerID string) (PeerLedger, error)
 	// Exists tells whether the ledger with given id exists
@@ -46,12 +48,11 @@ type PeerLedger interface {
 	GetBlockByHash(blockHash []byte) (*common.Block, error)
 	// GetBlockByTxID returns a block which contains a transaction
 	GetBlockByTxID(txID string) (*common.Block, error)
+	// GetTxValidationCodeByTxID returns reason code of transaction validation
+	GetTxValidationCodeByTxID(txID string) (peer.TxValidationCode, error)
 	// NewTxSimulator gives handle to a transaction simulator.
 	// A client can obtain more than one 'TxSimulator's for parallel execution.
 	// Any snapshoting/synchronization should be performed at the implementation level if required
-
-	// GetTxValidationCodeByTxID returns reason code of transaction validation
-	GetTxValidationCodeByTxID(txID string) (peer.TxValidationCode, error)
 	NewTxSimulator() (TxSimulator, error)
 	// NewQueryExecutor gives handle to a query executor.
 	// A client can obtain more than one 'QueryExecutor's for parallel execution.
@@ -85,11 +86,12 @@ type QueryExecutor interface {
 	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
 	// can be supplied as empty strings. However, a full scan shuold be used judiciously for performance reasons.
-	// The returned ResultsIterator contains results of type *KV
+	// The returned ResultsIterator contains results of type *KV which is defined in protos/ledger/queryresult.
 	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (commonledger.ResultsIterator, error)
 	// ExecuteQuery executes the given query and returns an iterator that contains results of type specific to the underlying data store.
 	// Only used for state databases that support query
 	// For a chaincode, the namespace corresponds to the chaincodeId
+	// The returned ResultsIterator contains results of type *KV which is defined in protos/ledger/queryresult.
 	ExecuteQuery(namespace, query string) (commonledger.ResultsIterator, error)
 	// Done releases resources occupied by the QueryExecutor
 	Done()
@@ -98,6 +100,7 @@ type QueryExecutor interface {
 // HistoryQueryExecutor executes the history queries
 type HistoryQueryExecutor interface {
 	// GetHistoryForKey retrieves the history of values for a key.
+	// The returned ResultsIterator contains results of type *KeyModification which is defined in protos/ledger/queryresult.
 	GetHistoryForKey(namespace string, key string) (commonledger.ResultsIterator, error)
 }
 
@@ -116,30 +119,9 @@ type TxSimulator interface {
 	// GetTxSimulationResults encapsulates the results of the transaction simulation.
 	// This should contain enough detail for
 	// - The update in the state that would be caused if the transaction is to be committed
-	// - The environment in which the transaction is executed so as to be able to decide the validity of the enviroment
+	// - The environment in which the transaction is executed so as to be able to decide the validity of the environment
 	//   (at a later time on a different peer) during committing the transactions
 	// Different ledger implementation (or configurations of a single implementation) may want to represent the above two pieces
 	// of information in different way in order to support different data-models or optimize the information representations.
-	// TODO detailed illustration of a couple of representations.
 	GetTxSimulationResults() ([]byte, error)
-}
-
-// KV - QueryResult for KV-based datamodel. Holds a key and corresponding value. A nil value indicates a non-existent key.
-type KV struct {
-	Key   string
-	Value []byte
-}
-
-// KeyModification - QueryResult for History.
-type KeyModification struct {
-	TxID  string
-	Value []byte
-}
-
-// QueryRecord - Result structure for query records. Holds a namespace, key and record.
-// Only used for state databases that support query
-type QueryRecord struct {
-	Namespace string
-	Key       string
-	Record    []byte
 }

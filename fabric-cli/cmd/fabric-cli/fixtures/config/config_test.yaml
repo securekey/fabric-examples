@@ -1,0 +1,80 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+client:
+ peers:
+  # peer0
+  - host: "localhost"
+    port: 7051
+    eventHost: "localhost"
+    eventPort: 7053
+    primary: true
+    tls:
+      # Certificate location absolute path
+      certificate: "$GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/channel/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/cacerts/org1.example.com-cert.pem"
+      serverHostOverride: "peer0.org1.example.com"
+  # peer 1
+  # - host: "localhost"
+  #   port: 8051
+  #   eventHost: "localhost"
+  #   eventPort: 8053
+  #   primary: false
+  #   tls:
+  #     # Certificate location absolute path
+  #     certificate: "$GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/peers/peer1/ca-cert.pem"
+  #     serverHostOverride: "peer1.org1.example.com"
+
+ tls:
+  enabled: true
+
+ security:
+  enabled: true
+  hashAlgorithm: "SHA2"
+  level: 256
+
+ tcert:
+  batch:
+    size: 200
+
+ orderer:
+  host: "localhost"
+  port: 7050
+  tls:
+    # Certificate location absolute path
+    certificate: "$GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/channel/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/cacerts/example.com-cert.pem"
+    serverHostOverride: "orderer.example.com"
+
+ logging:
+  level: info
+
+ fabricCA:
+  tlsEnabled: true
+  id: "Org1MSP"
+  name: "ca-org1"
+  homeDir: "/tmp/"
+  mspDir: "msp"
+  serverURL: "https://localhost:7054"
+  certfiles :
+    - "$GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/ca/ca_root.pem"
+  client:
+   keyfile: "$GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/client/client_client1-key.pem"
+   certfile: "$GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/client/client_client1.pem"
+
+ cryptoconfig:
+  path: "$GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/channel/crypto-config"

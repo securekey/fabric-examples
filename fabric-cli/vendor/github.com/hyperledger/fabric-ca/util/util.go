@@ -19,7 +19,9 @@ package util
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -37,14 +39,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
-
-	"golang.org/x/crypto/ocsp"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric/bccsp"
-	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/ocsp"
 )
 
 var (
@@ -154,16 +153,6 @@ func Unmarshal(from []byte, to interface{}, what string) error {
 	return nil
 }
 
-// DERCertToPEM converts DER to PEM format
-func DERCertToPEM(der []byte) []byte {
-	return pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: der,
-		},
-	)
-}
-
 // CreateToken creates a JWT-like token.
 // In a normal JWT token, the format of the token created is:
 //      <algorithm,claims,signature>
@@ -177,15 +166,10 @@ func DERCertToPEM(der []byte) []byte {
 // @param cert The pem-encoded certificate
 // @param key The pem-encoded key
 // @param body The body of an HTTP request
-func CreateToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (string, error) {
-
-	block, _ := pem.Decode(cert)
-	if block == nil {
-		return "", errors.New("Failed to PEM decode certificate")
-	}
-	x509Cert, err := x509.ParseCertificate(block.Bytes)
+func CreateToken(csp bccsp.BCCSP, cert []byte, key bccsp.Key, body []byte) (string, error) {
+	x509Cert, err := GetX509CertificateFromPEM(cert)
 	if err != nil {
-		return "", fmt.Errorf("Error from x509.ParseCertificate: %s", err)
+		return "", err
 	}
 	publicKey := x509Cert.PublicKey
 
@@ -235,13 +219,7 @@ func GenRSAToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (string,
 */
 
 //GenECDSAToken signs the http body and cert with ECDSA using EC private key
-func GenECDSAToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (string, error) {
-
-	sk, err := GetKeyFromBytes(csp, key)
-	if err != nil {
-		return "", err
-	}
-
+func GenECDSAToken(csp bccsp.BCCSP, cert []byte, key bccsp.Key, body []byte) (string, error) {
 	b64body := B64Encode(body)
 	b64cert := B64Encode(cert)
 	bodyAndcert := b64body + "." + b64cert
@@ -251,8 +229,8 @@ func GenECDSAToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (strin
 		return "", fmt.Errorf("Hash operation on %s\t failed with error : %s", bodyAndcert, digestError)
 	}
 
-	ecSignature, signatureError := csp.Sign(sk, digest, nil)
-	if signatureError != nil {
+	ecSignature, err := csp.Sign(key, digest, nil)
+	if err != nil {
 		return "", fmt.Errorf("BCCSP signature generation failed with error :%s", err)
 	}
 	if len(ecSignature) == 0 {
@@ -324,11 +302,7 @@ func DecodeToken(token string) (*x509.Certificate, string, string, error) {
 	if err != nil {
 		return nil, "", "", fmt.Errorf("Failed to decode base64 encoded x509 cert: %s", err)
 	}
-	block, _ := pem.Decode(certDecoded)
-	if block == nil {
-		return nil, "", "", errors.New("Failed to PEM decode the certificate")
-	}
-	x509Cert, err := x509.ParseCertificate(block.Bytes)
+	x509Cert, err := GetX509CertificateFromPEM(certDecoded)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("Error in parsing x509 cert given Block Bytes: %s", err)
 	}
@@ -339,31 +313,49 @@ func DecodeToken(token string) (*x509.Certificate, string, string, error) {
 func GetECPrivateKey(raw []byte) (*ecdsa.PrivateKey, error) {
 	decoded, _ := pem.Decode(raw)
 	if decoded == nil {
-		return nil, errors.New("Failed to decode the given PEM-encoded ECDSA key")
+		return nil, errors.New("Failed to decode the PEM-encoded ECDSA key")
 	}
 	ECprivKey, err := x509.ParseECPrivateKey(decoded.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("x509.ParseECPrivateKey failed: %s", err)
+	if err == nil {
+		return ECprivKey, nil
 	}
-	return ECprivKey, nil
+	key, err2 := x509.ParsePKCS8PrivateKey(decoded.Bytes)
+	if err2 == nil {
+		switch key.(type) {
+		case *ecdsa.PrivateKey:
+			return key.(*ecdsa.PrivateKey), nil
+		case *rsa.PrivateKey:
+			return nil, errors.New("Expecting EC private key but found RSA private key")
+		default:
+			return nil, errors.New("Invalid private key type in PKCS#8 wrapping")
+		}
+	}
+	return nil, fmt.Errorf("Failed parsing EC private key: %s", err)
 }
 
 //GetRSAPrivateKey get *rsa.PrivateKey from key pem
-// This function is commented out as there is no
-// adequate support for RSA
-/*
 func GetRSAPrivateKey(raw []byte) (*rsa.PrivateKey, error) {
 	decoded, _ := pem.Decode(raw)
 	if decoded == nil {
-		return nil, errors.New("Failed to decode the given PEM-encoded RSA key")
+		return nil, errors.New("Failed to decode the PEM-encoded RSA key")
 	}
 	RSAprivKey, err := x509.ParsePKCS1PrivateKey(decoded.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("Failure in x509.ParsePKCS1PrivateKey: %s", err)
+	if err == nil {
+		return RSAprivKey, nil
 	}
-	return RSAprivKey, nil
+	key, err2 := x509.ParsePKCS8PrivateKey(raw)
+	if err2 == nil {
+		switch key.(type) {
+		case *ecdsa.PrivateKey:
+			return nil, errors.New("Expecting RSA private key but found EC private key")
+		case *rsa.PrivateKey:
+			return key.(*rsa.PrivateKey), nil
+		default:
+			return nil, errors.New("Invalid private key type in PKCS#8 wrapping")
+		}
+	}
+	return nil, fmt.Errorf("Failed parsing RSA private key: %s", err)
 }
-*/
 
 // B64Encode base64 encodes bytes
 func B64Encode(buf []byte) string {
@@ -375,11 +367,6 @@ func B64Decode(str string) (buf []byte, err error) {
 	return base64.StdEncoding.DecodeString(str)
 }
 
-// GetDB returns a handle to an established driver-specific database connection
-func GetDB(driver string, dbPath string) (*sqlx.DB, error) {
-	return sqlx.Open(driver, dbPath)
-}
-
 // StrContained returns true if 'str' is in 'strs'; otherwise return false
 func StrContained(str string, strs []string) bool {
 	for _, s := range strs {
@@ -388,6 +375,23 @@ func StrContained(str string, strs []string) bool {
 		}
 	}
 	return false
+}
+
+// IsSubsetOf returns an error if there is something in 'small' that
+// is not in 'big'.  Both small and big are assumed to be comma-separated
+// strings.  All string comparisons are case-insensitive.
+// Examples:
+// 1) IsSubsetOf('a,B', 'A,B,C') returns nil
+// 2) IsSubsetOf('A,B,C', 'B,C') returns an error because A is not in the 2nd set.
+func IsSubsetOf(small, big string) error {
+	bigSet := strings.Split(big, ",")
+	smallSet := strings.Split(small, ",")
+	for _, s := range smallSet {
+		if s != "" && !StrContained(s, bigSet) {
+			return fmt.Errorf("'%s' is not a member of '%s'", s, big)
+		}
+	}
+	return nil
 }
 
 // HTTPRequestToString returns a string for an HTTP request for debuggging
@@ -454,7 +458,20 @@ func GetDefaultConfigFile(cmdName string) string {
 	return path.Join(os.Getenv("HOME"), ".fabric-ca-client", fname)
 }
 
-// GetX509CertificateFromPEM converts a PEM buffer to an X509 Certificate
+// GetX509CertificateFromPEMFile gets an X509 certificate from a file
+func GetX509CertificateFromPEMFile(file string) (*x509.Certificate, error) {
+	pemBytes, err := ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	x509Cert, err := GetX509CertificateFromPEM(pemBytes)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid certificate in %s: %s", file, err)
+	}
+	return x509Cert, nil
+}
+
+// GetX509CertificateFromPEM get an X509 certificate from bytes in PEM format
 func GetX509CertificateFromPEM(cert []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(cert)
 	if block == nil {
@@ -462,9 +479,24 @@ func GetX509CertificateFromPEM(cert []byte) (*x509.Certificate, error) {
 	}
 	x509Cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("Error from x509.ParseCertificate: %s", err)
+		return nil, fmt.Errorf("Error parsing certificate: %s", err)
 	}
 	return x509Cert, nil
+}
+
+// GetCertificateDurationFromFile returns the validity duration for a certificate
+// in a file.
+func GetCertificateDurationFromFile(file string) (time.Duration, error) {
+	cert, err := GetX509CertificateFromPEMFile(file)
+	if err != nil {
+		return 0, err
+	}
+	return GetCertificateDuration(cert), nil
+}
+
+// GetCertificateDuration returns the validity duration for a certificate
+func GetCertificateDuration(cert *x509.Certificate) time.Duration {
+	return cert.NotAfter.Sub(cert.NotBefore)
 }
 
 // GetEnrollmentIDFromPEM returns the EnrollmentID from a PEM buffer
@@ -494,6 +526,18 @@ func MakeFileAbs(file, dir string) (string, error) {
 		return "", fmt.Errorf("Failed making '%s' absolute based on '%s'", file, dir)
 	}
 	return path, nil
+}
+
+// MakeFileNamesAbsolute makes all file names in the list absolute, relative to home
+func MakeFileNamesAbsolute(files []*string, home string) error {
+	for _, filePtr := range files {
+		abs, err := MakeFileAbs(*filePtr, home)
+		if err != nil {
+			return err
+		}
+		*filePtr = abs
+	}
+	return nil
 }
 
 // Fatal logs a fatal message and exits
@@ -529,40 +573,9 @@ func GetUser() (string, string, error) {
 	return eid, pass, nil
 }
 
-// GetKeyFromBytes returns a BCCSP key given a byte buffer.  The byte buffer
-// should always contain the SKI and not the real private key;  however,
-// until we have complete BCCSP integration, we tolerate it being the real
-// private key.
-func GetKeyFromBytes(csp bccsp.BCCSP, key []byte) (bccsp.Key, error) {
-
-	// This should succeed if key is an SKI
-	sk, err := csp.GetKey(key)
-	if err == nil {
-		return sk, nil
-	}
-
-	// Nope, try handling as a private key itself
-	pk, err := GetECPrivateKey(key)
-	if err != nil {
-		return nil, err
-	}
-
-	pkb, err := x509.MarshalECPrivateKey(pk)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to marshal EC private key: %s", err)
-	}
-
-	return csp.KeyImport(pkb, &bccsp.ECDSAPrivateKeyImportOpts{Temporary: true})
-}
-
 // GetSerialAsHex returns the serial number from certificate as hex format
 func GetSerialAsHex(serial *big.Int) string {
 	hex := fmt.Sprintf("%x", serial)
-
-	if utf8.RuneCountInString(hex) < 80 {
-		hex = fmt.Sprintf("0%s", hex)
-	}
-
 	return hex
 }
 
@@ -589,4 +602,67 @@ func StructToString(si interface{}) string {
 	}
 	buffer.WriteString(" }")
 	return buffer.String()
+}
+
+// NormalizeStringSlice checks for seperators
+func NormalizeStringSlice(slice []string) []string {
+	var normalizedSlice []string
+
+	if len(slice) > 0 {
+		for _, item := range slice {
+			if strings.Contains(item, ",") {
+				normalizedSlice = append(normalizedSlice, strings.Split(item, ",")...)
+			} else {
+				normalizedSlice = append(normalizedSlice, item)
+			}
+		}
+	}
+
+	return normalizedSlice
+}
+
+// NormalizeFileList provides absolute pathing for the list of files
+func NormalizeFileList(files []string, homeDir string) ([]string, error) {
+	var err error
+
+	files = NormalizeStringSlice(files)
+
+	for i, file := range files {
+		files[i], err = MakeFileAbs(file, homeDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return files, nil
+}
+
+// CheckHostsInCert checks to see if host correctly inserted into certificate
+func CheckHostsInCert(certFile string, host string) error {
+	containsHost := false
+	certBytes, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return fmt.Errorf("Failed to read file: %s", err)
+	}
+
+	cert, err := GetX509CertificateFromPEM(certBytes)
+	if err != nil {
+		return fmt.Errorf("Failed to get certificate: %s", err)
+	}
+	// Run through the extensions for the certificates
+	for _, ext := range cert.Extensions {
+		// asn1 identifier for 'Subject Alternative Name'
+		if ext.Id.Equal(asn1.ObjectIdentifier{2, 5, 29, 17}) {
+			if !strings.Contains(string(ext.Value), host) {
+				return fmt.Errorf("Host '%s' was not found in the certificate in file '%s'", host, certFile)
+			}
+			containsHost = true
+		}
+	}
+
+	if !containsHost {
+		return errors.New("Certificate contains no hosts")
+	}
+
+	return nil
 }

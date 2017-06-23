@@ -24,6 +24,7 @@ import (
 	cb "github.com/hyperledger/fabric/protos/common"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/common/flogging"
 	logging "github.com/op/go-logging"
 )
 
@@ -59,7 +60,7 @@ const (
 	BlockValidation = PathSeparator + ChannelPrefix + PathSeparator + OrdererPrefix + PathSeparator + "BlockValidation"
 )
 
-var logger = logging.MustGetLogger("common/policies")
+var logger = flogging.MustGetLogger("policies")
 
 // Policy is used to determine if a signature is valid
 type Policy interface {
@@ -131,6 +132,10 @@ type ManagerImpl struct {
 	config        *policyConfig
 	pendingConfig map[interface{}]*policyConfig
 	pendingLock   sync.RWMutex
+
+	// SuppressSanityLogMessages when set to true will prevent the sanity checking log
+	// messages.  Useful for novel cases like channel templates
+	SuppressSanityLogMessages bool
 }
 
 // NewManagerImpl creates a new ManagerImpl with the given CryptoHelper
@@ -229,7 +234,7 @@ func (pm *ManagerImpl) BeginPolicyProposals(tx interface{}, groups []string) ([]
 	defer pm.pendingLock.Unlock()
 	pendingConfig, ok := pm.pendingConfig[tx]
 	if ok {
-		logger.Panicf("Serious Programming error: cannot call begin mulitply for the same proposal")
+		logger.Panicf("Serious Programming error: cannot call begin multiply for the same proposal")
 	}
 
 	pendingConfig = &policyConfig{
@@ -289,7 +294,7 @@ func (pm *ManagerImpl) CommitProposals(tx interface{}) {
 	pm.config = pendingConfig
 	delete(pm.pendingConfig, tx)
 
-	if pm.parent == nil && pm.basePath == ChannelPrefix {
+	if pm.parent == nil && pm.basePath == ChannelPrefix && !pm.SuppressSanityLogMessages {
 		for _, policyName := range []string{ChannelReaders, ChannelWriters} {
 			_, ok := pm.GetPolicy(policyName)
 			if !ok {
@@ -344,7 +349,7 @@ func (pm *ManagerImpl) ProposePolicy(tx interface{}, key string, configPolicy *c
 	var deserialized proto.Message
 
 	if policy.Type == int32(cb.Policy_IMPLICIT_META) {
-		imp, err := newImplicitMetaPolicy(policy.Policy)
+		imp, err := newImplicitMetaPolicy(policy.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -358,7 +363,7 @@ func (pm *ManagerImpl) ProposePolicy(tx interface{}, key string, configPolicy *c
 		}
 
 		var err error
-		cPolicy, deserialized, err = provider.NewPolicy(policy.Policy)
+		cPolicy, deserialized, err = provider.NewPolicy(policy.Value)
 		if err != nil {
 			return nil, err
 		}
