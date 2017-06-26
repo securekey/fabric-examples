@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3a3291f1_6c5ebbeb",
+        "filename": "fabric-cli/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2017-06-26T20:05:10Z",
+      "side": 1,
+      "message": "Did you see the go build comment on the last change set?",
+      "range": {
+        "startLine": 28,
+        "startChar": 0,
+        "endLine": 29,
+        "endChar": 34
+      },
+      "revId": "4bbeb1b389d5d445a0283be8820fec0388622c9d",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    }
+  ]
+}
