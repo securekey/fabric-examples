@@ -46,6 +46,52 @@
       "revId": "4bbeb1b389d5d445a0283be8820fec0388622c9d",
       "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "3a3291f1_ac194324",
+        "filename": "fabric-cli/cmd/fabric-cli/fixtures/channel/configtx.yaml",
+        "patchSetId": 3
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 1000058
+      },
+      "writtenOn": "2017-06-26T21:14:03Z",
+      "side": 1,
+      "message": "should this be updated to the correct license owner?",
+      "range": {
+        "startLine": 1,
+        "startChar": 0,
+        "endLine": 1,
+        "endChar": 42
+      },
+      "revId": "4bbeb1b389d5d445a0283be8820fec0388622c9d",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "3a3291f1_8c1687f0",
+        "filename": "fabric-cli/vendor/github.com/hyperledger/fabric-ca/lib/ca.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1000058
+      },
+      "writtenOn": "2017-06-26T21:14:03Z",
+      "side": 1,
+      "message": "is this the correct license?",
+      "range": {
+        "startLine": 2,
+        "startChar": 1,
+        "endLine": 2,
+        "endChar": 44
+      },
+      "revId": "4bbeb1b389d5d445a0283be8820fec0388622c9d",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
     }
   ]
 }
