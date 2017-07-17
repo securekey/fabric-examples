@@ -9,6 +9,7 @@ package event
 import (
 	"fmt"
 
+	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
@@ -31,15 +32,15 @@ var listenTxCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running listenTxAction: %v", err)
-			return
 		}
 	},
 }
 
-// Cmd returns the listentx command
 func getListenTXCmd() *cobra.Command {
 	flags := listenTxCmd.Flags()
 	common.Config().InitTxID(flags)
@@ -48,11 +49,12 @@ func getListenTXCmd() *cobra.Command {
 }
 
 type listentxAction struct {
-	common.ActionImpl
+	common.Action
+	inputEvent
 }
 
 func newListenTXAction(flags *pflag.FlagSet) (*listentxAction, error) {
-	action := &listentxAction{}
+	action := &listentxAction{inputEvent: inputEvent{done: make(chan bool)}}
 	err := action.Initialize(flags)
 	return action, err
 }
@@ -60,20 +62,23 @@ func newListenTXAction(flags *pflag.FlagSet) (*listentxAction, error) {
 func (action *listentxAction) invoke() error {
 	done := make(chan bool)
 
-	eventHub := action.EventHub()
+	eventHub, err := action.EventHub()
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("Registering TX event for TxID [%s]\n", common.Config().TxID())
 
-	eventHub.RegisterTxEvent(common.Config().TxID(), func(txID string, code pb.TxValidationCode, err error) {
+	txnID := apitxn.TransactionID{ID: common.Config().TxID()}
+	eventHub.RegisterTxEvent(txnID, func(txID string, code pb.TxValidationCode, err error) {
 		fmt.Printf("Received TX event. TxID: %s, Code: %s, Error: %s\n", txID, code, err)
 		done <- true
 	})
 
-	// Wait for the event
-	<-done
+	action.WaitForEnter()
 
 	fmt.Printf("Unregistering TX event for TxID [%s]\n", common.Config().TxID())
-	eventHub.UnregisterTxEvent(common.Config().TxID())
+	eventHub.UnregisterTxEvent(txnID)
 
 	return nil
 }

@@ -30,22 +30,22 @@ var queryInstalledCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.run()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running queryInstalledAction: %v", err)
-			return
 		}
 	},
 }
 
-// getQueryChannelsCmd returns the Query installed CCs action command
 func getQueryInstalledCmd() *cobra.Command {
 	common.Config().InitPeerURL(queryInstalledCmd.Flags())
 	return queryInstalledCmd
 }
 
 type queryInstalledAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newqueryInstalledAction(flags *pflag.FlagSet) (*queryInstalledAction, error) {
@@ -60,12 +60,20 @@ func (action *queryInstalledAction) run() error {
 		return fmt.Errorf("unknown peer URL: %s", common.Config().PeerURL())
 	}
 
+	orgID, err := action.OrgOfPeer(peer.URL())
+	if err != nil {
+		return err
+	}
+
+	context := action.SetUserContext(action.OrgAdminUser(orgID))
+	defer context.Restore()
+
 	response, err := action.Client().QueryInstalledChaincodes(peer)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Chaincodes for peer [%s]\n", common.Config().PeerURL())
+	fmt.Printf("Chaincodes for peer [%s]\n", peer.URL())
 	action.Printer().PrintChaincodes(response.Chaincodes)
 	return nil
 }

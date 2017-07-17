@@ -12,7 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
@@ -35,15 +36,15 @@ var invokeCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running invokeAction: %v", err)
-			return
 		}
 	},
 }
 
-// Cmd returns the invoke command
 func getInvokeCmd() *cobra.Command {
 	flags := invokeCmd.Flags()
 	common.Config().InitPeerURL(flags)
@@ -56,7 +57,7 @@ func getInvokeCmd() *cobra.Command {
 }
 
 type invokeAction struct {
-	common.ActionImpl
+	common.Action
 	numInvoked uint32
 	done       chan bool
 }
@@ -68,9 +69,9 @@ func newInvokeAction(flags *pflag.FlagSet) (*invokeAction, error) {
 }
 
 func (action *invokeAction) invoke() error {
-	chain, err := action.NewChannel()
+	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error initializing chain: %v", err)
+		return fmt.Errorf("Error getting channel client: %v", err)
 	}
 
 	argBytes := []byte(common.Config().Args())
@@ -81,7 +82,7 @@ func (action *invokeAction) invoke() error {
 	}
 
 	if common.Config().Iterations() > 1 {
-		go action.invokeMultiple(chain, args.Args, common.Config().Iterations())
+		go action.invokeMultiple(channelClient, args.Func, args.Args, common.Config().Iterations())
 
 		completed := false
 		for !completed {
@@ -93,19 +94,23 @@ func (action *invokeAction) invoke() error {
 			}
 		}
 	} else {
-		if err := action.doInvoke(chain, args.Args); err != nil {
+		if err := action.doInvoke(channelClient, args.Func, args.Args); err != nil {
 			fmt.Printf("Error invoking chaincode: %v\n", err)
+		} else {
+			fmt.Println("Invocation successful!")
 		}
 	}
 
 	return nil
 }
 
-func (action *invokeAction) invokeMultiple(chain api.Channel, args []string, iterations int) {
+func (action *invokeAction) invokeMultiple(chain apifabclient.Channel, fctn string, args []string, iterations int) {
 	fmt.Printf("Invoking CC %d times ...\n", iterations)
 	for i := 0; i < iterations; i++ {
-		if err := action.doInvoke(chain, args); err != nil {
+		if err := action.doInvoke(chain, fctn, args); err != nil {
 			fmt.Printf("Error invoking chaincode: %v\n", err)
+		} else {
+			common.Config().Logger().Info("Invocation %d successful\n", i)
 		}
 		if (i+1) < iterations && common.Config().SleepTime() > 0 {
 			time.Sleep(time.Duration(common.Config().SleepTime()) * time.Millisecond)
@@ -116,28 +121,34 @@ func (action *invokeAction) invokeMultiple(chain api.Channel, args []string, ite
 	action.done <- true
 }
 
-func (action *invokeAction) doInvoke(chain api.Channel, args []string) error {
-	common.Config().Logger().Infof("Invoking chaincode: %s or channel: %s, with args: [%v]\n", common.Config().ChaincodeID(), common.Config().ChannelID(), args)
+func (action *invokeAction) doInvoke(channel apifabclient.Channel, fctn string, args []string) error {
+	common.Config().Logger().Infof("Invoking chaincode: %s on channel: %s, peers: %s, function: %s, args: [%v]\n", common.Config().ChaincodeID(), common.Config().ChannelID(), asString(action.Peers()), fctn, args)
 
-	signedProposal, err := chain.CreateTransactionProposal(common.Config().ChaincodeID(), common.Config().ChannelID(), args, true, nil)
-	if err != nil {
-		return fmt.Errorf("SendTransactionProposal return error: %v", err)
+	targets := make([]apitxn.ProposalProcessor, len(action.Peers()))
+	for i, p := range action.Peers() {
+		targets[i] = p
 	}
 
-	transactionProposalResponses, err := chain.SendTransactionProposal(signedProposal, 0, action.Peers())
+	transactionProposalResponses, txnID, err := channel.SendTransactionProposal(apitxn.ChaincodeInvokeRequest{
+		Targets:      targets,
+		Fcn:          fctn,
+		Args:         args,
+		TransientMap: nil,
+		ChaincodeID:  common.Config().ChaincodeID(),
+	})
 	if err != nil {
 		return fmt.Errorf("SendTransactionProposal return error: %v", err)
 	}
 
 	var proposalErr error
-	var responses []*api.TransactionProposalResponse
+	var responses []*apitxn.TransactionProposalResponse
 	for _, v := range transactionProposalResponses {
 		if v.Err != nil {
-			common.Config().Logger().Errorf("invoke - TxID: %s, Endorser %s returned error: %v\n", signedProposal.TransactionID, v.Endorser, v.Err)
+			common.Config().Logger().Errorf("invoke - TxID: %s, Endorser %s returned error: %v\n", txnID.ID, v.Endorser, v.Err)
 			proposalErr = fmt.Errorf("invoke Endorser %s return error: %v", v.Endorser, v.Err)
 		} else {
 			responses = append(responses, v)
-			common.Config().Logger().Debugf("invoke - TxID: %s, Endorser %s returned ProposalResponse: %v\n", signedProposal.TransactionID, v.Endorser, v.ProposalResponse.Response.Payload)
+			common.Config().Logger().Debugf("invoke - TxID: %s, Endorser %s returned ProposalResponse: %v\n", txnID.ID, v.Endorser, v.ProposalResponse.Response.Payload)
 		}
 	}
 
@@ -145,47 +156,72 @@ func (action *invokeAction) doInvoke(chain api.Channel, args []string) error {
 		return proposalErr
 	}
 
-	common.Config().Logger().Debugf("invoke - Creating transaction - TxID: %s ...\n", signedProposal.TransactionID)
+	common.Config().Logger().Debugf("invoke - Committing transaction - TxID: %s ...\n", txnID.ID)
+	if err = action.commit(channel, responses); err != nil {
+		common.Config().Logger().Criticalf("invoke - Unregistering Tx Event for txId: %s since the transaction was not able to be sent ...\n", txnID.ID)
+		return err
+	}
 
-	tx, err := chain.CreateTransaction(responses)
+	if err = action.waitForTx(txnID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (action *invokeAction) commit(channel apifabclient.Channel, responses []*apitxn.TransactionProposalResponse) error {
+	tx, err := channel.CreateTransaction(responses)
 	if err != nil {
 		return fmt.Errorf("CreateTransaction return error: %v", err)
 	}
 
-	common.Config().Logger().Debugf("invoke - Sending transaction - TxID: %s ...\n", signedProposal.TransactionID)
-	transactionResponses, err := chain.SendTransaction(tx)
+	_, err = channel.SendTransaction(tx)
 	if err != nil {
-		common.Config().Logger().Criticalf("invoke - Unregistering Tx Event for txId: %s since the transaction was not able to be sent ...\n", signedProposal.TransactionID)
 		return fmt.Errorf("SendTransaction returned error: %v", err)
 	}
 
-	for _, v := range transactionResponses {
-		if v.Err != nil {
-			common.Config().Logger().Criticalf("Unregistering TX Event for txId: %s since received error on transaction response", signedProposal.TransactionID)
-			return fmt.Errorf("Orderer %s return error: %v", v.Orderer, v.Err)
-		}
-	}
+	return nil
+}
+
+func (action *invokeAction) waitForTx(txnID apitxn.TransactionID) error {
 	done := make(chan bool)
 	fail := make(chan error)
 
-	action.EventHub().RegisterTxEvent(signedProposal.TransactionID, func(txID string, code pb.TxValidationCode, err error) {
+	eventHub, err := action.EventHub()
+	if err != nil {
+		return err
+	}
+
+	eventHub.RegisterTxEvent(txnID, func(txID string, code pb.TxValidationCode, err error) {
 		if err != nil {
 			fail <- err
 		} else {
-			fmt.Printf("invoke receive success event for txid(%s)\n", txID)
 			done <- true
 		}
-
 	})
 
 	select {
 	case <-done:
+		return nil
 	case <-fail:
-		return fmt.Errorf("invoke Error received from eventhub for txid(%s) error(%v)", signedProposal.TransactionID, fail)
+		return fmt.Errorf("invoke Error received from eventhub for txid(%s) error(%v)", txnID.ID, fail)
 	case <-time.After(time.Second * 60):
-		return fmt.Errorf("timed out waiting to receive block event for txid(%s)", signedProposal.TransactionID)
+		return fmt.Errorf("timed out waiting to receive block event for txid(%s)", txnID.ID)
 	}
+}
 
-	common.Config().Logger().Infof("Invocation successful!\n")
-	return nil
+func asString(peers []apifabclient.Peer) string {
+	str := "["
+	for i, peer := range peers {
+		if peer.Name() != "" {
+			str += peer.Name()
+		} else {
+			str += peer.URL()
+		}
+		if i+1 < len(peers) {
+			str += ","
+		}
+	}
+	str += "]"
+	return str
 }

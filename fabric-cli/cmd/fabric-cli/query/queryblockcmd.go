@@ -9,7 +9,7 @@ package query
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	fabricCommon "github.com/hyperledger/fabric/protos/common"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
@@ -32,15 +32,15 @@ var queryBlockCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running queryBlockAction: %v", err)
-			return
 		}
 	},
 }
 
-// getQueryBlockCmd returns the Query block action command
 func getQueryBlockCmd() *cobra.Command {
 	flags := queryBlockCmd.Flags()
 	common.Config().InitChannelID(flags)
@@ -52,7 +52,7 @@ func getQueryBlockCmd() *cobra.Command {
 }
 
 type queryBlockAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newQueryBlockAction(flags *pflag.FlagSet) (*queryBlockAction, error) {
@@ -62,15 +62,18 @@ func newQueryBlockAction(flags *pflag.FlagSet) (*queryBlockAction, error) {
 }
 
 func (action *queryBlockAction) invoke() error {
-	chain, err := action.NewChannel()
+	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error initializing chain: %v", err)
+		return fmt.Errorf("Error getting channel client: %v", err)
 	}
+
+	context := action.SetUserContext(action.OrgAdminUser(common.Config().OrgID()))
+	defer context.Restore()
 
 	var block *fabricCommon.Block
 	if common.Config().BlockNum() >= 0 {
 		var err error
-		block, err = chain.QueryBlock(common.Config().BlockNum())
+		block, err = channelClient.QueryBlock(common.Config().BlockNum())
 		if err != nil {
 			return err
 		}
@@ -82,7 +85,7 @@ func (action *queryBlockAction) invoke() error {
 			return err
 		}
 
-		block, err = chain.QueryBlockByHash(hashBytes)
+		block, err = channelClient.QueryBlockByHash(hashBytes)
 		if err != nil {
 			return err
 		}
@@ -92,12 +95,12 @@ func (action *queryBlockAction) invoke() error {
 
 	action.Printer().PrintBlock(block)
 
-	action.traverse(chain, block, common.Config().Traverse()-1)
+	action.traverse(channelClient, block, common.Config().Traverse()-1)
 
 	return nil
 }
 
-func (action *queryBlockAction) traverse(chain api.Channel, currentBlock *fabricCommon.Block, num int) error {
+func (action *queryBlockAction) traverse(chain apifabclient.Channel, currentBlock *fabricCommon.Block, num int) error {
 	if num <= 0 {
 		return nil
 	}

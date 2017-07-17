@@ -7,9 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package event
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 
 	fabricCommon "github.com/hyperledger/fabric/protos/common"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
@@ -28,33 +26,36 @@ var listenBlockCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running listenBlockAction: %v", err)
-			return
 		}
 	},
 }
 
-// Cmd returns the listenBlock command
 func getListenBlockCmd() *cobra.Command {
 	common.Config().InitPeerURL(listenBlockCmd.Flags(), "", "The URL of the peer on which to listen for events, e.g. localhost:7051")
 	return listenBlockCmd
 }
 
 type listenBlockAction struct {
-	common.ActionImpl
-	done chan bool
+	common.Action
+	inputEvent
 }
 
 func newlistenBlockAction(flags *pflag.FlagSet) (*listenBlockAction, error) {
-	action := &listenBlockAction{done: make(chan bool)}
+	action := &listenBlockAction{inputEvent: inputEvent{done: make(chan bool)}}
 	err := action.Initialize(flags)
 	return action, err
 }
 
 func (action *listenBlockAction) invoke() error {
-	eventHub := action.EventHub()
+	eventHub, err := action.EventHub()
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("Registering block event\n")
 
@@ -65,19 +66,10 @@ func (action *listenBlockAction) invoke() error {
 
 	eventHub.RegisterBlockEvent(callback)
 
-	go action.readFromCLI()
-
-	<-action.done
+	action.WaitForEnter()
 
 	fmt.Printf("Unregistering block event\n")
 	eventHub.UnregisterBlockEvent(callback)
 
 	return nil
-}
-
-func (action *listenBlockAction) readFromCLI() {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Press <enter> to terminate")
-	reader.ReadString('\n')
-	action.done <- true
 }

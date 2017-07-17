@@ -16,7 +16,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	api "github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
+	fab "github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	consumer "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/events/consumer"
 	cnsmr "github.com/hyperledger/fabric/events/consumer"
 
@@ -29,11 +31,12 @@ import (
 
 var logger = logging.MustGetLogger("fabric_sdk_go")
 
-type eventHub struct {
+// EventHub allows a client to listen to event at a peer.
+type EventHub struct {
 	// Protects chaincodeRegistrants, blockRegistrants and txRegistrants
 	mtx sync.RWMutex
 	// Map of clients registered for chaincode events
-	chaincodeRegistrants map[string][]*api.ChainCodeCBE
+	chaincodeRegistrants map[string][]*fab.ChainCodeCBE
 	// Map of clients registered for block events
 	blockRegistrants []func(*common.Block)
 	// Map of clients registered for transactional events
@@ -45,7 +48,7 @@ type eventHub struct {
 	// peer tls server host override
 	peerTLSServerHostOverride string
 	// grpc event client interface
-	grpcClient api.EventsClient
+	grpcClient fab.EventsClient
 	// fabric connection state of this eventhub
 	connected bool
 	// List of events client is interested in
@@ -53,31 +56,31 @@ type eventHub struct {
 	// Factory that creates EventsClient
 	eventsClientFactory eventClientFactory
 	// FabricClient
-	client api.FabricClient
+	client fab.FabricClient
 }
 
 // eventClientFactory creates an EventsClient instance
 type eventClientFactory interface {
-	newEventsClient(client api.FabricClient, peerAddress string, certificate string, serverHostOverride string, regTimeout time.Duration, adapter cnsmr.EventAdapter) (api.EventsClient, error)
+	newEventsClient(client fab.FabricClient, peerAddress string, certificate string, serverHostOverride string, regTimeout time.Duration, adapter cnsmr.EventAdapter) (fab.EventsClient, error)
 }
 
 // consumerClientFactory is the default implementation oif the eventClientFactory
 type consumerClientFactory struct{}
 
-func (ccf *consumerClientFactory) newEventsClient(client api.FabricClient, peerAddress string, certificate string, serverHostOverride string, regTimeout time.Duration, adapter cnsmr.EventAdapter) (api.EventsClient, error) {
+func (ccf *consumerClientFactory) newEventsClient(client fab.FabricClient, peerAddress string, certificate string, serverHostOverride string, regTimeout time.Duration, adapter cnsmr.EventAdapter) (fab.EventsClient, error) {
 	return consumer.NewEventsClient(client, peerAddress, certificate, serverHostOverride, regTimeout, adapter)
 }
 
 // NewEventHub ...
-func NewEventHub(client api.FabricClient) (api.EventHub, error) {
+func NewEventHub(client fab.FabricClient) (*EventHub, error) {
 
 	if client == nil {
 		return nil, fmt.Errorf("Client is nil")
 	}
-	chaincodeRegistrants := make(map[string][]*api.ChainCodeCBE)
+	chaincodeRegistrants := make(map[string][]*fab.ChainCodeCBE)
 	txRegistrants := make(map[string]func(string, pb.TxValidationCode, error))
 
-	eventHub := &eventHub{
+	eventHub := EventHub{
 		chaincodeRegistrants: chaincodeRegistrants,
 		blockRegistrants:     nil,
 		txRegistrants:        txRegistrants,
@@ -89,11 +92,11 @@ func NewEventHub(client api.FabricClient) (api.EventHub, error) {
 	// register default transaction callback
 	eventHub.RegisterBlockEvent(eventHub.txCallback)
 
-	return eventHub, nil
+	return &eventHub, nil
 }
 
 // SetInterests clears all interests and sets the interests for BLOCK type of events.
-func (eventHub *eventHub) SetInterests(block bool) {
+func (eventHub *EventHub) SetInterests(block bool) {
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
 
@@ -107,7 +110,7 @@ func (eventHub *eventHub) SetInterests(block bool) {
 }
 
 // Disconnect disconnects from peer event source
-func (eventHub *eventHub) Disconnect() {
+func (eventHub *EventHub) Disconnect() {
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
 
@@ -123,7 +126,7 @@ func (eventHub *eventHub) Disconnect() {
 }
 
 // RegisterBlockEvent - register callback function for block events
-func (eventHub *eventHub) RegisterBlockEvent(callback func(*common.Block)) {
+func (eventHub *EventHub) RegisterBlockEvent(callback func(*common.Block)) {
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
 
@@ -136,7 +139,7 @@ func (eventHub *eventHub) RegisterBlockEvent(callback func(*common.Block)) {
 }
 
 // UnregisterBlockEvent unregister callback for block event
-func (eventHub *eventHub) UnregisterBlockEvent(callback func(*common.Block)) {
+func (eventHub *EventHub) UnregisterBlockEvent(callback func(*common.Block)) {
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
 
@@ -163,7 +166,7 @@ func (eventHub *eventHub) UnregisterBlockEvent(callback func(*common.Block)) {
 }
 
 // addChaincodeInterest adds interest for specific CHAINCODE events.
-func (eventHub *eventHub) addChaincodeInterest(ChaincodeID string, EventName string) {
+func (eventHub *EventHub) addChaincodeInterest(ChaincodeID string, EventName string) {
 	ccInterest := &pb.Interest{
 		EventType: pb.EventType_CHAINCODE,
 		RegInfo: &pb.Interest_ChaincodeRegInfo{
@@ -183,7 +186,7 @@ func (eventHub *eventHub) addChaincodeInterest(ChaincodeID string, EventName str
 }
 
 // removeChaincodeInterest remove interest for specific CHAINCODE event
-func (eventHub *eventHub) removeChaincodeInterest(ChaincodeID string, EventName string) {
+func (eventHub *EventHub) removeChaincodeInterest(ChaincodeID string, EventName string) {
 	ccInterest := &pb.Interest{
 		EventType: pb.EventType_CHAINCODE,
 		RegInfo: &pb.Interest_ChaincodeRegInfo{
@@ -206,37 +209,25 @@ func (eventHub *eventHub) removeChaincodeInterest(ChaincodeID string, EventName 
 
 }
 
-// SetPeerAddr ...
-/**
- * Set peer url for event source<p>
- * Note: Only use this if creating your own EventHub. The chain
- * creates a default eventHub that most Node clients can
- * use (see eventHubConnect, eventHubDisconnect and getEventHub).
- * @param {string} peeraddr peer url
- * @param {string} peerTLSCertificate peer tls certificate
- * @param {string} peerTLSServerHostOverride tls serverhostoverride
- */
-func (eventHub *eventHub) SetPeerAddr(peerURL string, peerTLSCertificate string, peerTLSServerHostOverride string) {
+// SetPeerAddr set peer url for event source
+// peeraddr peer url
+// peerTLSCertificate peer tls certificate
+// peerTLSServerHostOverride tls serverhostoverride
+func (eventHub *EventHub) SetPeerAddr(peerURL string, peerTLSCertificate string, peerTLSServerHostOverride string) {
 	eventHub.peerAddr = peerURL
 	eventHub.peerTLSCertificate = peerTLSCertificate
 	eventHub.peerTLSServerHostOverride = peerTLSServerHostOverride
 
 }
 
-// Isconnected ...
-/**
- * Get connected state of eventhub
- * @returns true if connected to event source, false otherwise
- */
-func (eventHub *eventHub) IsConnected() bool {
+// IsConnected gets connected state of eventhub
+// Returns true if connected to event source, false otherwise
+func (eventHub *EventHub) IsConnected() bool {
 	return eventHub.connected
 }
 
-// Connect ...
-/**
- * Establishes connection with peer event source<p>
- */
-func (eventHub *eventHub) Connect() error {
+// Connect establishes connection with peer event source
+func (eventHub *EventHub) Connect() error {
 
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
@@ -255,7 +246,9 @@ func (eventHub *eventHub) Connect() error {
 	}
 
 	if eventHub.grpcClient == nil {
-		eventsClient, _ := eventHub.eventsClientFactory.newEventsClient(eventHub.client, eventHub.peerAddr, eventHub.peerTLSCertificate, eventHub.peerTLSServerHostOverride, 5, eventHub)
+		eventsClient, _ := eventHub.eventsClientFactory.newEventsClient(eventHub.client,
+			eventHub.peerAddr, eventHub.peerTLSCertificate, eventHub.peerTLSServerHostOverride,
+			eventHub.client.Config().TimeoutOrDefault(apiconfig.EventReg), eventHub)
 		eventHub.grpcClient = eventsClient
 	}
 
@@ -270,12 +263,12 @@ func (eventHub *eventHub) Connect() error {
 }
 
 //GetInterestedEvents implements consumer.EventAdapter interface for registering interested events
-func (eventHub *eventHub) GetInterestedEvents() ([]*pb.Interest, error) {
+func (eventHub *EventHub) GetInterestedEvents() ([]*pb.Interest, error) {
 	return eventHub.interestedEvents, nil
 }
 
 //Recv implements consumer.EventAdapter interface for receiving events
-func (eventHub *eventHub) Recv(msg *pb.Event) (bool, error) {
+func (eventHub *EventHub) Recv(msg *pb.Event) (bool, error) {
 	switch msg.Event.(type) {
 	case *pb.Event_Block:
 		blockEvent := msg.Event.(*pb.Event_Block)
@@ -306,7 +299,7 @@ func (eventHub *eventHub) Recv(msg *pb.Event) (bool, error) {
 }
 
 // Disconnected implements consumer.EventAdapter interface for receiving events
-func (eventHub *eventHub) Disconnected(err error) {
+func (eventHub *EventHub) Disconnected(err error) {
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
 
@@ -318,27 +311,23 @@ func (eventHub *eventHub) Disconnected(err error) {
 	eventHub.connected = false
 }
 
-// RegisterChaincodeEvent ...
-/**
- * Register a callback function to receive chaincode events.
- * @param {string} ccid string chaincode id
- * @param {string} eventname string The regex string used to filter events
- * @param {function} callback Function Callback function for filter matches
- * that takes a single parameter which is a json object representation
- * of type "message ChaincodeEvent"
- * @returns {object} ChainCodeCBE object that should be treated as an opaque
- * handle used to unregister (see unregisterChaincodeEvent)
- */
-func (eventHub *eventHub) RegisterChaincodeEvent(ccid string, eventname string, callback func(*api.ChaincodeEvent)) *api.ChainCodeCBE {
+// RegisterChaincodeEvent registers a callback function to receive chaincode events.
+// ccid: chaincode id
+// eventname: The regex string used to filter events
+// callback: Callback function for filter matches that takes a single parameter which is a json object representation
+//           of type "message ChaincodeEvent"
+// Returns ChainCodeCBE object that should be treated as an opaque
+// handle used to unregister (see unregisterChaincodeEvent)
+func (eventHub *EventHub) RegisterChaincodeEvent(ccid string, eventname string, callback func(*fab.ChaincodeEvent)) *fab.ChainCodeCBE {
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
 
 	eventHub.addChaincodeInterest(ccid, eventname)
 
-	cbe := api.ChainCodeCBE{CCID: ccid, EventNameFilter: eventname, CallbackFunc: callback}
+	cbe := fab.ChainCodeCBE{CCID: ccid, EventNameFilter: eventname, CallbackFunc: callback}
 	cbeArray := eventHub.chaincodeRegistrants[ccid]
 	if cbeArray == nil && len(cbeArray) <= 0 {
-		cbeArray = make([]*api.ChainCodeCBE, 0)
+		cbeArray = make([]*fab.ChainCodeCBE, 0)
 		cbeArray = append(cbeArray, &cbe)
 		eventHub.chaincodeRegistrants[ccid] = cbeArray
 	} else {
@@ -348,13 +337,9 @@ func (eventHub *eventHub) RegisterChaincodeEvent(ccid string, eventname string, 
 	return &cbe
 }
 
-// UnregisterChaincodeEvent ...
-/**
- * Unregister chaincode event registration
- * @param {object} ChainCodeCBE handle returned from call to
- * registerChaincodeEvent.
- */
-func (eventHub *eventHub) UnregisterChaincodeEvent(cbe *api.ChainCodeCBE) {
+// UnregisterChaincodeEvent unregisters chaincode event registration
+// ChainCodeCBE: handle returned from call to registerChaincodeEvent.
+func (eventHub *EventHub) UnregisterChaincodeEvent(cbe *fab.ChainCodeCBE) {
 	eventHub.mtx.Lock()
 	defer eventHub.mtx.Unlock()
 
@@ -379,32 +364,23 @@ func (eventHub *eventHub) UnregisterChaincodeEvent(cbe *api.ChainCodeCBE) {
 	}
 }
 
-// RegisterTxEvent ...
-/**
- * Register a callback function to receive transactional events.<p>
- * Note: transactional event registration is primarily used by
- * the sdk to track deploy and invoke completion events. Nodejs
- * clients generally should not need to call directly.
- * @param {string} txid string transaction id
- * @param {function} callback Function that takes a single parameter which
- * is a json object representation of type "message Transaction"
- */
-func (eventHub *eventHub) RegisterTxEvent(txID string, callback func(string, pb.TxValidationCode, error)) {
-	logger.Debugf("reg txid %s\n", txID)
+// RegisterTxEvent registers a callback function to receive transactional events.
+// txid: transaction id
+// callback: Function that takes a single parameter which
+// is a json object representation of type "message Transaction"
+func (eventHub *EventHub) RegisterTxEvent(txnID apitxn.TransactionID, callback func(string, pb.TxValidationCode, error)) {
+	logger.Debugf("reg txid %s\n", txnID.ID)
 
 	eventHub.mtx.Lock()
-	eventHub.txRegistrants[txID] = callback
+	eventHub.txRegistrants[txnID.ID] = callback
 	eventHub.mtx.Unlock()
 }
 
-// UnregisterTxEvent ...
-/**
- * Unregister transactional event registration.
- * @param txid string transaction id
- */
-func (eventHub *eventHub) UnregisterTxEvent(txID string) {
+// UnregisterTxEvent unregister transactional event registration.
+// txid: transaction id
+func (eventHub *EventHub) UnregisterTxEvent(txnID apitxn.TransactionID) {
 	eventHub.mtx.Lock()
-	delete(eventHub.txRegistrants, txID)
+	delete(eventHub.txRegistrants, txnID.ID)
 	eventHub.mtx.Unlock()
 }
 
@@ -413,7 +389,7 @@ func (eventHub *eventHub) UnregisterTxEvent(txID string) {
  * @param {object} block json object representing block of tx
  * from the fabric
  */
-func (eventHub *eventHub) txCallback(block *common.Block) {
+func (eventHub *EventHub) txCallback(block *common.Block) {
 	logger.Debugf("txCallback block=%v\n", block)
 
 	txFilter := util.TxValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])
@@ -452,7 +428,7 @@ func (eventHub *eventHub) txCallback(block *common.Block) {
 	}
 }
 
-func (eventHub *eventHub) getBlockRegistrants() []func(*common.Block) {
+func (eventHub *EventHub) getBlockRegistrants() []func(*common.Block) {
 	eventHub.mtx.RLock()
 	defer eventHub.mtx.RUnlock()
 
@@ -464,7 +440,7 @@ func (eventHub *eventHub) getBlockRegistrants() []func(*common.Block) {
 	return clone
 }
 
-func (eventHub *eventHub) getChaincodeRegistrants(chaincodeID string) []*api.ChainCodeCBE {
+func (eventHub *EventHub) getChaincodeRegistrants(chaincodeID string) []*fab.ChainCodeCBE {
 	eventHub.mtx.RLock()
 	defer eventHub.mtx.RUnlock()
 
@@ -474,14 +450,14 @@ func (eventHub *eventHub) getChaincodeRegistrants(chaincodeID string) []*api.Cha
 	}
 
 	// Return a clone of the array to avoid race conditions
-	clone := make([]*api.ChainCodeCBE, len(registrants))
+	clone := make([]*fab.ChainCodeCBE, len(registrants))
 	for i, registrants := range registrants {
 		clone[i] = registrants
 	}
 	return clone
 }
 
-func (eventHub *eventHub) getTXRegistrant(txID string) func(string, pb.TxValidationCode, error) {
+func (eventHub *EventHub) getTXRegistrant(txID string) func(string, pb.TxValidationCode, error) {
 	eventHub.mtx.RLock()
 	defer eventHub.mtx.RUnlock()
 	return eventHub.txRegistrants[txID]
@@ -541,7 +517,7 @@ func getChainCodeEvent(tdata []byte) (event *pb.ChaincodeEvent, channelID string
 }
 
 // Utility function to fire callbacks for chaincode registrants
-func (eventHub *eventHub) notifyChaincodeRegistrants(channelID string, ccEvent *pb.ChaincodeEvent, patternMatch bool) {
+func (eventHub *EventHub) notifyChaincodeRegistrants(channelID string, ccEvent *pb.ChaincodeEvent, patternMatch bool) {
 
 	cbeArray := eventHub.getChaincodeRegistrants(ccEvent.ChaincodeId)
 	if len(cbeArray) <= 0 {
@@ -556,7 +532,7 @@ func (eventHub *eventHub) notifyChaincodeRegistrants(channelID string, ccEvent *
 		if match {
 			callback := v.CallbackFunc
 			if callback != nil {
-				callback(&api.ChaincodeEvent{
+				callback(&fab.ChaincodeEvent{
 					ChaincodeID: ccEvent.ChaincodeId,
 					TxID:        ccEvent.TxId,
 					EventName:   ccEvent.EventName,

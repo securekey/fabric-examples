@@ -9,10 +9,7 @@ package event
 import (
 	"fmt"
 
-	"bufio"
-	"os"
-
-	"github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -40,15 +37,15 @@ var listenccCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			fmt.Printf("\nError while running listenCCAction: %v\n", err)
-			return
 		}
 	},
 }
 
-// Cmd returns the listencc command
 func getListenCCCmd() *cobra.Command {
 	flags := listenccCmd.Flags()
 	common.Config().InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. localhost:7051")
@@ -58,22 +55,25 @@ func getListenCCCmd() *cobra.Command {
 }
 
 type listenccAction struct {
-	done chan bool
-	common.ActionImpl
+	common.Action
+	inputEvent
 }
 
 func newListenCCAction(flags *pflag.FlagSet) (*listenccAction, error) {
-	action := &listenccAction{done: make(chan bool)}
+	action := &listenccAction{inputEvent: inputEvent{done: make(chan bool)}}
 	err := action.Initialize(flags)
 	return action, err
 }
 
 func (action *listenccAction) invoke() error {
-	eventHub := action.EventHub()
+	eventHub, err := action.EventHub()
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("Registering CC event on chaincode [%s] and event [%s]\n", common.Config().ChaincodeID(), common.Config().ChaincodeEvent())
 
-	registration := eventHub.RegisterChaincodeEvent(common.Config().ChaincodeID(), common.Config().ChaincodeEvent(), func(event *api.ChaincodeEvent) {
+	registration := eventHub.RegisterChaincodeEvent(common.Config().ChaincodeID(), common.Config().ChaincodeEvent(), func(event *apifabclient.ChaincodeEvent) {
 		fmt.Printf("Received CC event:\n")
 		fmt.Printf("- Channel ID: %s\n", event.ChannelID)
 		fmt.Printf("- Chaincode ID: %s\n", event.ChaincodeID)
@@ -84,19 +84,10 @@ func (action *listenccAction) invoke() error {
 		fmt.Println("Press <enter> to terminate")
 	})
 
-	go action.readFromCLI()
-
-	<-action.done
+	action.WaitForEnter()
 
 	fmt.Printf("Unregistering CC event on chaincode [%s] and event [%s]\n", common.Config().ChaincodeID(), common.Config().ChaincodeEvent())
 	eventHub.UnregisterChaincodeEvent(registration)
 
 	return nil
-}
-
-func (action *listenccAction) readFromCLI() {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Press <enter> to terminate")
-	reader.ReadString('\n')
-	action.done <- true
 }

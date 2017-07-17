@@ -30,15 +30,15 @@ var queryTXCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.run()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running queryTXAction: %v", err)
-			return
 		}
 	},
 }
 
-// getQueryTXCmd returns the Query TX command
 func getQueryTXCmd() *cobra.Command {
 	flags := queryTXCmd.Flags()
 	common.Config().InitChannelID(flags)
@@ -48,7 +48,7 @@ func getQueryTXCmd() *cobra.Command {
 }
 
 type queryTXAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newQueryTXAction(flags *pflag.FlagSet) (*queryTXAction, error) {
@@ -59,17 +59,20 @@ func newQueryTXAction(flags *pflag.FlagSet) (*queryTXAction, error) {
 }
 
 func (action *queryTXAction) run() error {
-	chain, err := action.NewChannel()
+	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error initializing chain: %v", err)
+		return fmt.Errorf("Error getting channel client: %v", err)
 	}
 
-	tx, err := chain.QueryTransaction(common.Config().TxID())
+	context := action.SetUserContext(action.OrgAdminUser(common.Config().OrgID()))
+	defer context.Restore()
+
+	tx, err := channelClient.QueryTransaction(common.Config().TxID())
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Transaction #%s in chain %s\n", common.Config().TxID(), common.Config().ChannelID())
+	fmt.Printf("Transaction %s in chain %s\n", common.Config().TxID(), common.Config().ChannelID())
 	action.Printer().PrintProcessedTransaction(tx)
 
 	return nil

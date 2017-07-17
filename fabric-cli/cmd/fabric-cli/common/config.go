@@ -11,16 +11,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"strings"
 
 	"sync"
 
-	"github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
 	bccspFactory "github.com/hyperledger/fabric/bccsp/factory"
 	logging "github.com/op/go-logging"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -45,6 +45,10 @@ const (
 	loggingLevelFlag        = "logging-level"
 	loggingLevelDescription = "Logging level - CRITICAL, ERROR, WARNING, INFO, DEBUG"
 	defaultLoggingLevel     = "CRITICAL"
+
+	orgIDsFlag        = "orgid"
+	orgIDsDescription = "A comma-separated list of organization IDs"
+	defaultOrgIDs     = "org1,org2"
 
 	channelIDFlag        = "cid"
 	channelIDDescription = "The channel ID"
@@ -78,7 +82,7 @@ const (
 	defaultCertificate     = ""
 
 	argsFlag        = "args"
-	argsDescription = "The args in JSON format. Example: {\"Args\":[\"arg1\",\"arg2\"]}"
+	argsDescription = "The args in JSON format. Example: {\"Func\":\"function\",\"Args\":[\"arg1\",\"arg2\"]}"
 
 	iterationsFlag        = "iterations"
 	iterationsDescription = "The number of times to invoke the chaincode"
@@ -96,7 +100,7 @@ const (
 	chaincodeEventDescription = "The name of the chaincode event to listen for"
 	defaultChaincodeEvent     = ""
 
-	txIDFlag        = "tx"
+	txIDFlag        = "txid"
 	txIDDescription = "The transaction ID"
 	defaultTxID     = ""
 
@@ -118,82 +122,112 @@ var configInit sync.Once
 
 // CLIConfig extendsthe fabric API config and provides additional configuration options
 type CLIConfig interface {
-	api.Config
+	apiconfig.Config
 
+	// Logger returns the Logger for the CLI tool
 	Logger() *logging.Logger
 
+	// LoggingLevel specifies the logging level (DEBUG, INFO, WARNING, ERROR, or CRITICAL)
 	LoggingLevel() string
 	InitLoggingLevel(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// ConfigFile specified the path of the configuration file
 	ConfigFile() string
 	InitConfigFile(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// OrgID specifies the ID of the current organization. If multiple org IDs are specified then the first one is returned.
+	OrgID() string
+
+	// OrgIDs returns a comma-separated list of organization IDs
+	OrgIDs() []string
+	InitOrgIDs(flags *pflag.FlagSet, defaultValueAndDescription ...string)
+
+	// ChannelID returns the channel ID
 	ChannelID() string
 	InitChannelID(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
-	User() string
-	InitUser(flags *pflag.FlagSet, defaultValueAndDescription ...string)
+	// UserName returns the name of the enrolled user
+	UserName() string
+	InitUserName(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
-	Password() string
-	InitPassword(flags *pflag.FlagSet, defaultValueAndDescription ...string)
+	// UserPassword is the password to use when enrolling a user
+	UserPassword() string
+	InitUserPassword(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// ChaincodeID returns the chaicode ID
 	ChaincodeID() string
 	InitChaincodeID(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// ChaincodePath returns the source path of the chaincode to install/instantiate
 	ChaincodePath() string
 	InitChaincodePath(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// ChaincodeVersion returns the version of the chaincode
 	ChaincodeVersion() string
 	InitChaincodeVersion(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// ChaincodeEvent the name of the chaincode event to listen for
 	ChaincodeEvent() string
 	InitChaincodeEvent(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// PeerURL returns the URL of the peer
 	PeerURL() string
 	InitPeerURL(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// OrdererURL returns the URL of the orderer
 	OrdererURL() string
 	InitOrdererURL(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
-	Certificate() string
-	InitCertificate(flags *pflag.FlagSet, defaultValueAndDescription ...string)
+	// OrdererTLSCertificate is the path of the orderer TLS certificate
+	OrdererTLSCertificate() string
+	InitOrdererTLSCertificate(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// Iterations returns the number of times that a chaincode should be invoked
 	Iterations() int
 	InitIterations(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
-	BlockNum() int
-	InitBlockNum(flags *pflag.FlagSet, defaultValueAndDescription ...string)
-
-	BlockHash() string
-	InitBlockHash(flags *pflag.FlagSet, defaultValueAndDescription ...string)
-
-	Traverse() int
-	InitTraverse(flags *pflag.FlagSet, defaultValueAndDescription ...string)
-
+	// SleepTime returns the number of milliseconds to sleep between invocations of a chaincode
 	SleepTime() int64
 	InitSleepTime(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// BlockNum returns the block number (where 0 is the first block)
+	BlockNum() int
+	InitBlockNum(flags *pflag.FlagSet, defaultValueAndDescription ...string)
+
+	// BlockHash specifies the hash of the block
+	BlockHash() string
+	InitBlockHash(flags *pflag.FlagSet, defaultValueAndDescription ...string)
+
+	// Traverse returns the number of blocks to traverse backwards in the query block command
+	Traverse() int
+	InitTraverse(flags *pflag.FlagSet, defaultValueAndDescription ...string)
+
+	// PrintFormat returns the print (output) format for a block
 	PrintFormat() string
 	InitPrintFormat(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// Args returns the chaincode invocation arguments as a JSON string in the format, {"Func":"function","Args":["arg1","arg2",...]}
 	Args() string
 	InitArgs(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// TxFile is the path of the .tx file used to create a channel
 	TxFile() string
 	InitTxFile(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 
+	// TxID returns the transaction ID
 	TxID() string
 	InitTxID(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 }
 
 // cliConfig overrides certain configuration values with those supplied on the command-line
 type cliConfig struct {
-	config           api.Config
+	config           apiconfig.Config
 	logger           *logging.Logger
 	certificate      string
 	user             string
 	password         string
 	loggingLevel     string
+	orgIDsStr        string
 	channelID        string
 	chaincodeID      string
 	chaincodePath    string
@@ -221,6 +255,7 @@ func getConfigImpl() *cliConfig {
 			password:         defaultPassword,
 			loggingLevel:     defaultLoggingLevel,
 			channelID:        defaultChannelID,
+			orgIDsStr:        defaultOrgIDs,
 			chaincodeVersion: defaultChaincodeVersion,
 			iterations:       1,
 			configFile:       defaultConfigFile,
@@ -259,6 +294,24 @@ func (c *cliConfig) InitConfigFile(flags *pflag.FlagSet, defaultValueAndDescript
 	flags.StringVar(&c.configFile, configFileFlag, defaultValue, description)
 }
 
+func (c *cliConfig) OrgID() string {
+	return c.OrgIDs()[0]
+}
+
+func (c *cliConfig) OrgIDs() []string {
+	var orgIDs []string
+	s := strings.Split(c.orgIDsStr, ",")
+	for _, orgID := range s {
+		orgIDs = append(orgIDs, orgID)
+	}
+	return orgIDs
+}
+
+func (c *cliConfig) InitOrgIDs(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultOrgIDs, orgIDsDescription, defaultValueAndDescription...)
+	flags.StringVar(&c.orgIDsStr, orgIDsFlag, defaultValue, description)
+}
+
 func (c *cliConfig) ChannelID() string {
 	return c.channelID
 }
@@ -268,20 +321,20 @@ func (c *cliConfig) InitChannelID(flags *pflag.FlagSet, defaultValueAndDescripti
 	flags.StringVar(&c.channelID, channelIDFlag, defaultValue, description)
 }
 
-func (c *cliConfig) User() string {
+func (c *cliConfig) UserName() string {
 	return c.user
 }
 
-func (c *cliConfig) InitUser(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func (c *cliConfig) InitUserName(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultUser, userDescription, defaultValueAndDescription...)
 	flags.StringVar(&c.user, userFlag, defaultValue, description)
 }
 
-func (c *cliConfig) Password() string {
+func (c *cliConfig) UserPassword() string {
 	return c.password
 }
 
-func (c *cliConfig) InitPassword(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func (c *cliConfig) InitUserPassword(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultPassword, passwordDescription, defaultValueAndDescription...)
 	flags.StringVar(&c.password, passwordFlag, defaultValue, description)
 }
@@ -414,11 +467,11 @@ func (c *cliConfig) InitPrintFormat(flags *pflag.FlagSet, defaultValueAndDescrip
 	flags.StringVar(&c.printFormat, printFormatFlag, defaultValue, description)
 }
 
-func (c *cliConfig) Certificate() string {
+func (c *cliConfig) OrdererTLSCertificate() string {
 	return c.certificate
 }
 
-func (c *cliConfig) InitCertificate(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func (c *cliConfig) InitOrdererTLSCertificate(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultCertificate, certificateDescription, defaultValueAndDescription...)
 	flags.StringVar(&c.certificate, certificateFileFlag, defaultValue, description)
 }
@@ -450,46 +503,50 @@ func (c *cliConfig) InitTxID(flags *pflag.FlagSet, defaultValueAndDescription ..
 	flags.StringVar(&c.txID, txIDFlag, defaultValue, description)
 }
 
-// Implementation of api.Config...
+// Implementation of apifabclient.Config...
 
-func (c *cliConfig) GetServerURL() string {
-	return c.config.GetServerURL()
+func (c *cliConfig) NetworkConfig() (*apiconfig.NetworkConfig, error) {
+	return c.config.NetworkConfig()
 }
 
-func (c *cliConfig) GetServerCertFiles() []string {
-	return c.config.GetServerCertFiles()
+func (c *cliConfig) CAConfig(org string) (*apiconfig.CAConfig, error) {
+	return c.config.CAConfig(org)
 }
 
-func (c *cliConfig) GetFabricCAClientKeyFile() string {
-	return c.config.GetFabricCAClientKeyFile()
+func (c *cliConfig) MspID(org string) (string, error) {
+	return c.config.MspID(org)
 }
 
-func (c *cliConfig) GetFabricCAClientCertFile() string {
-	return c.config.GetFabricCAClientCertFile()
+func (c *cliConfig) CAServerCertFiles(org string) ([]string, error) {
+	return c.config.CAServerCertFiles(org)
 }
 
-func (c *cliConfig) GetFabricCATLSEnabledFlag() bool {
-	return c.config.GetFabricCATLSEnabledFlag()
+func (c *cliConfig) CAClientKeyFile(org string) (string, error) {
+	return c.config.CAClientKeyFile(org)
 }
 
-func (c *cliConfig) GetFabricClientViper() *viper.Viper {
-	return c.config.GetFabricClientViper()
-}
-
-func (c *cliConfig) GetPeersConfig() ([]api.PeerConfig, error) {
-	return c.config.GetPeersConfig()
+func (c *cliConfig) CAClientCertFile(org string) (string, error) {
+	return c.config.CAClientCertFile(org)
 }
 
 func (c *cliConfig) IsTLSEnabled() bool {
 	return c.config.IsTLSEnabled()
 }
 
-func (c *cliConfig) GetTLSCACertPool(tlsCertificate string) (*x509.CertPool, error) {
-	return c.config.GetTLSCACertPool(tlsCertificate)
+func (c *cliConfig) PeersConfig(org string) ([]apiconfig.PeerConfig, error) {
+	return c.config.PeersConfig(org)
 }
 
-func (c *cliConfig) GetTLSCACertPoolFromRoots(ordererRootCAs [][]byte) (*x509.CertPool, error) {
-	return c.config.GetTLSCACertPoolFromRoots(ordererRootCAs)
+func (c *cliConfig) PeerConfig(org, name string) (*apiconfig.PeerConfig, error) {
+	return c.config.PeerConfig(org, name)
+}
+
+func (c *cliConfig) TLSCACertPool(tlsCertificate string) (*x509.CertPool, error) {
+	return c.config.TLSCACertPool(tlsCertificate)
+}
+
+func (c *cliConfig) SetTLSCACertPool(pool *x509.CertPool) {
+	c.config.SetTLSCACertPool(pool)
 }
 
 func (c *cliConfig) IsSecurityEnabled() bool {
@@ -500,72 +557,97 @@ func (c *cliConfig) TcertBatchSize() int {
 	return c.config.TcertBatchSize()
 }
 
-func (c *cliConfig) GetSecurityAlgorithm() string {
-	return c.config.GetSecurityAlgorithm()
+func (c *cliConfig) SecurityAlgorithm() string {
+	return c.config.SecurityAlgorithm()
 }
 
-func (c *cliConfig) GetSecurityLevel() int {
-	return c.config.GetSecurityLevel()
+func (c *cliConfig) SecurityLevel() int {
+	return c.config.SecurityLevel()
 }
 
-func (c *cliConfig) GetOrdererHost() string {
-	if c.ordererURL == "" {
-		return c.config.GetOrdererHost()
+func (c *cliConfig) OrderersConfig() ([]apiconfig.OrdererConfig, error) {
+	overridden := false
+
+	configs, err := c.config.OrderersConfig()
+	if err != nil {
+		return nil, err
 	}
-	return strings.Split(c.ordererURL, ":")[0]
-}
 
-func (c *cliConfig) GetOrdererPort() string {
-	if c.ordererURL == "" {
-		return c.config.GetOrdererPort()
+	defaultConfig := configs[0]
+
+	host := defaultConfig.Host
+	port := defaultConfig.Port
+
+	if c.OrdererURL() != "" {
+		overridden = true
+		s := strings.Split(c.OrdererURL(), ":")
+		host = s[0]
+		if len(s) > 1 {
+			if p, err := strconv.Atoi(s[1]); err != nil {
+				port = p
+			} else {
+				return nil, fmt.Errorf("invalid port %s", s[1])
+			}
+		}
 	}
-	s := strings.Split(c.ordererURL, ":")
-	if len(s) > 1 {
-		return s[1]
+
+	certificate := defaultConfig.TLS.Certificate
+
+	if c.certificate != "" {
+		overridden = true
+		certificate = c.OrdererTLSCertificate()
 	}
-	return c.config.GetOrdererPort()
-}
 
-func (c *cliConfig) GetOrdererTLSServerHostOverride() string {
-	return c.config.GetOrdererTLSServerHostOverride()
-}
-
-func (c *cliConfig) GetOrdererTLSCertificate() string {
-	if c.certificate == "" {
-		return c.config.GetOrdererTLSCertificate()
+	if !overridden {
+		return c.config.OrderersConfig()
 	}
-	return c.certificate
+
+	return []apiconfig.OrdererConfig{
+		apiconfig.OrdererConfig{
+			Host: host,
+			Port: port,
+			TLS: apiconfig.TLSConfig{
+				Certificate:        certificate,
+				ServerHostOverride: defaultConfig.TLS.ServerHostOverride,
+			},
+		},
+	}, nil
 }
 
-func (c *cliConfig) GetFabricCAID() string {
-	return c.config.GetFabricCAID()
+func (c *cliConfig) RandomOrdererConfig() (*apiconfig.OrdererConfig, error) {
+	orderers, err := c.OrderersConfig()
+	if err != nil {
+		return nil, err
+	}
+	return &orderers[0], nil
 }
 
-func (c *cliConfig) GetFabricCAName() string {
-	return c.config.GetFabricCAName()
+func (c *cliConfig) OrdererConfig(name string) (*apiconfig.OrdererConfig, error) {
+	return c.config.OrdererConfig(name)
 }
 
-func (c *cliConfig) GetKeyStorePath() string {
-	return c.config.GetKeyStorePath()
+func (c *cliConfig) KeyStorePath() string {
+	return c.config.KeyStorePath()
 }
 
-func (c *cliConfig) GetFabricCAHomeDir() string {
-	return c.config.GetFabricCAHomeDir()
+func (c *cliConfig) CAKeyStorePath() string {
+	return c.config.CAKeyStorePath()
 }
 
-func (c *cliConfig) GetFabricCAMspDir() string {
-	return c.config.GetFabricCAMspDir()
+func (c *cliConfig) CryptoConfigPath() string {
+	return c.config.CryptoConfigPath()
 }
 
-func (c *cliConfig) GetCryptoConfigPath() string {
-	return c.config.GetCryptoConfigPath()
+func (c *cliConfig) CSPConfig() *bccspFactory.FactoryOpts {
+	return c.config.CSPConfig()
 }
 
-func (c *cliConfig) GetCSPConfig() *bccspFactory.FactoryOpts {
-	return c.config.GetCSPConfig()
+func (c *cliConfig) TimeoutOrDefault(conn apiconfig.ConnectionType) time.Duration {
+	return c.config.TimeoutOrDefault(conn)
 }
 
 // Utility functions...
+
 func getEmptyArgs() string {
 	argBytes, err := json.Marshal(&ArgStruct{})
 	if err != nil {

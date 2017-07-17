@@ -9,9 +9,7 @@ package channel
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/api"
-	"github.com/hyperledger/fabric/common/crypto"
-	protos_utils "github.com/hyperledger/fabric/protos/utils"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -28,15 +26,15 @@ var chainJoinCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running channelJoinAction: %v", err)
-			return
 		}
 	},
 }
 
-// getChannelJoinCmd returns the chainJoinAction command
 func getChannelJoinCmd() *cobra.Command {
 	flags := chainJoinCmd.Flags()
 	common.Config().InitChannelID(flags)
@@ -46,7 +44,7 @@ func getChannelJoinCmd() *cobra.Command {
 }
 
 type channelJoinAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newChannelJoinAction(flags *pflag.FlagSet) (*channelJoinAction, error) {
@@ -62,63 +60,53 @@ func newChannelJoinAction(flags *pflag.FlagSet) (*channelJoinAction, error) {
 }
 
 func (action *channelJoinAction) invoke() error {
-	channel, err := action.NewChannel()
+	fmt.Printf("Attempting to join channel: %s\n", common.Config().ChannelID())
+
+	for orgID, peers := range action.PeersByOrg() {
+		fmt.Printf("Joining channel %s on org[%s] peers:\n", common.Config().ChaincodeID(), orgID)
+		for _, peer := range peers {
+			fmt.Printf("-- %s\n", peer.URL())
+		}
+		err := action.joinChannel(orgID, peers)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (action *channelJoinAction) joinChannel(orgID string, peers []apifabclient.Peer) error {
+	channelClient, err := action.ChannelClient()
+	if err != nil {
+		return fmt.Errorf("Error getting channel client: %v", err)
+	}
+
+	context := action.SetUserContext(action.OrgAdminUser(orgID))
+	defer context.Restore()
+
+	txnID, err := action.Client().NewTxnID()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Attempting to join channel: %s\n", common.Config().ChannelID())
-
-	err = action.joinChannel(channel)
-	if err != nil {
-		return fmt.Errorf("Could not join channel: %v", err)
-	}
-	fmt.Println("Channel joined!")
-
-	return nil
-}
-
-func (action *channelJoinAction) joinChannel(channel api.Channel) error {
-	nonce, err := crypto.GetRandomNonce()
-	if err != nil {
-		return fmt.Errorf("Could not compute nonce: %s", err)
-	}
-
-	signingIdentity, err := action.Client().GetIdentity()
-	if err != nil {
-		return fmt.Errorf("Could not get signing identity: %s", err)
-	}
-
-	txID, err := protos_utils.ComputeProposalTxID(nonce, signingIdentity)
-	if err != nil {
-		return fmt.Errorf("Could not compute TxID: %s", err)
-	}
-
-	genesisBlockRequest := &api.GenesisBlockRequest{
-		TxID:  txID,
-		Nonce: nonce,
-	}
-	genesisBlock, err := channel.GetGenesisBlock(genesisBlockRequest)
+	genesisBlock, err := channelClient.GenesisBlock(&apifabclient.GenesisBlockRequest{TxnID: txnID})
 	if err != nil {
 		return fmt.Errorf("Error getting genesis block: %v", err)
 	}
 
-	nonce, err = crypto.GetRandomNonce()
-	if err != nil {
-		return fmt.Errorf("Could not compute nonce: %s", err)
+	if txnID, err = action.Client().NewTxnID(); err != nil {
+		return err
 	}
 
-	txID, err = protos_utils.ComputeProposalTxID(nonce, signingIdentity)
-	if err != nil {
-		return fmt.Errorf("Could not compute TxID: %s", err)
-	}
-
-	req := &api.JoinChannelRequest{
-		Targets:      action.Peers(),
+	if err = channelClient.JoinChannel(&apifabclient.JoinChannelRequest{
+		Targets:      peers,
 		GenesisBlock: genesisBlock,
-		TxID:         txID,
-		Nonce:        nonce,
+		TxnID:        txnID,
+	}); err != nil {
+		return fmt.Errorf("Could not join channel: %v", err)
 	}
 
-	return channel.JoinChannel(req)
+	fmt.Printf("Channel %s joined!\n", common.Config().ChannelID())
+
+	return nil
 }

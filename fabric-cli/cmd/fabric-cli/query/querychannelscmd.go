@@ -30,22 +30,22 @@ var queryChannelsCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.run()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running queryChannelsAction: %v", err)
-			return
 		}
 	},
 }
 
-// getQueryChannelsCmd returns the Query block action command
 func getQueryChannelsCmd() *cobra.Command {
 	common.Config().InitPeerURL(queryChannelsCmd.Flags())
 	return queryChannelsCmd
 }
 
 type queryChannelsAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newQueryChannelsAction(flags *pflag.FlagSet) (*queryChannelsAction, error) {
@@ -60,12 +60,20 @@ func (action *queryChannelsAction) run() error {
 		return fmt.Errorf("unknown peer URL: %s", common.Config().PeerURL())
 	}
 
+	orgID, err := action.OrgOfPeer(peer.URL())
+	if err != nil {
+		return err
+	}
+
+	context := action.SetUserContext(action.OrgAdminUser(orgID))
+	defer context.Restore()
+
 	response, err := action.Client().QueryChannels(peer)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Channels for peer [%s]\n", common.Config().PeerURL())
+	fmt.Printf("Channels for peer [%s]\n", peer.URL())
 
 	action.Printer().PrintChannels(response.Channels)
 

@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -34,15 +34,15 @@ var queryCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.query()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running queryAction: %v", err)
-			return
 		}
 	},
 }
 
-// Cmd returns the query command
 func getQueryCmd() *cobra.Command {
 	flags := queryCmd.Flags()
 	common.Config().InitPeerURL(flags)
@@ -55,7 +55,7 @@ func getQueryCmd() *cobra.Command {
 }
 
 type queryAction struct {
-	common.ActionImpl
+	common.Action
 	numInvoked uint32
 	done       chan bool
 }
@@ -67,9 +67,9 @@ func newQueryAction(flags *pflag.FlagSet) (*queryAction, error) {
 }
 
 func (action *queryAction) query() error {
-	chain, err := action.NewChannel()
+	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error initializing chain: %v", err)
+		return fmt.Errorf("Error getting channel client: %v", err)
 	}
 
 	argBytes := []byte(common.Config().Args())
@@ -80,7 +80,7 @@ func (action *queryAction) query() error {
 	}
 
 	if common.Config().Iterations() > 1 {
-		go action.queryMultiple(chain, args.Args, common.Config().Iterations())
+		go action.queryMultiple(channelClient, args.Func, args.Args, common.Config().Iterations())
 
 		completed := false
 		for !completed {
@@ -92,7 +92,7 @@ func (action *queryAction) query() error {
 			}
 		}
 	} else {
-		response, err := action.doQuery(chain, args.Args)
+		response, err := action.doQuery(channelClient, args.Func, args.Args)
 		if err != nil {
 			fmt.Printf("Error invoking chaincode: %v\n", err)
 		} else {
@@ -103,12 +103,15 @@ func (action *queryAction) query() error {
 	return nil
 }
 
-func (action *queryAction) queryMultiple(chain api.Channel, args []string, iterations int) {
+func (action *queryAction) queryMultiple(channel apifabclient.Channel, fctn string, args []string, iterations int) {
 	fmt.Printf("Querying CC %d times ...\n", iterations)
 	for i := 0; i < iterations; i++ {
-		if _, err := action.doQuery(chain, args); err != nil {
+		if response, err := action.doQuery(channel, fctn, args); err != nil {
 			fmt.Printf("Error invoking chaincode: %v\n", err)
+		} else {
+			common.Config().Logger().Infof("***** Response: %s\n", response)
 		}
+
 		if (i+1) < iterations && common.Config().SleepTime() > 0 {
 			time.Sleep(time.Duration(common.Config().SleepTime()) * time.Millisecond)
 		}
@@ -118,10 +121,10 @@ func (action *queryAction) queryMultiple(chain api.Channel, args []string, itera
 	action.done <- true
 }
 
-func (action *queryAction) doQuery(chain api.Channel, args []string) ([]byte, error) {
-	common.Config().Logger().Infof("Invoking chaincode: %s or channel: %s, with args: [%v]\n", common.Config().ChaincodeID(), common.Config().ChannelID(), args)
+func (action *queryAction) doQuery(channel apifabclient.Channel, fctn string, args []string) ([]byte, error) {
+	common.Config().Logger().Infof("Invoking chaincode: %s on channel: %s, function: %s, args: %v\n", common.Config().ChaincodeID(), common.Config().ChannelID(), fctn, args)
 
-	response, err := common.QueryChaincode(chain, action.Peers(), common.Config().ChaincodeID(), common.Config().ChannelID(), args)
+	response, err := QueryChaincode(channel, action.Peers(), common.Config().ChaincodeID(), common.Config().ChannelID(), fctn, args)
 	if err != nil {
 		return nil, err
 	}

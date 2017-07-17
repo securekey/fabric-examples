@@ -7,15 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package mocks
 
 import (
-	api "github.com/hyperledger/fabric-sdk-go/api"
+	ca "github.com/hyperledger/fabric-sdk-go/api/apifabca"
 	"github.com/hyperledger/fabric/bccsp"
 )
 
 // MockUser ...
 type MockUser struct {
 	name                  string
+	mspID                 string
 	roles                 []string
-	PrivateKey            bccsp.Key // ****This key is temporary We use it to sign transaction until we have tcerts
+	privateKey            bccsp.Key // ****This key is temporary We use it to sign transaction until we have tcerts
 	enrollmentCertificate []byte
 }
 
@@ -25,25 +26,30 @@ type MockUser struct {
  *
  * @param {string} name - The user name
  */
-func NewMockUser(name string) api.User {
+func NewMockUser(name string) ca.User {
 	return &MockUser{name: name}
 }
 
-// GetName ...
+//NewMockUserWithMSPID to return mock user with MSP ids
+func NewMockUserWithMSPID(name string, mspid string) ca.User {
+	return &MockUser{name: name, mspID: mspid}
+}
+
+// Name ...
 /**
  * Get the user name.
  * @returns {string} The user name.
  */
-func (u *MockUser) GetName() string {
+func (u *MockUser) Name() string {
 	return u.name
 }
 
-// GetRoles ...
+// Roles ...
 /**
  * Get the roles.
  * @returns {[]string} The roles.
  */
-func (u *MockUser) GetRoles() []string {
+func (u *MockUser) Roles() []string {
 	return u.roles
 }
 
@@ -56,11 +62,11 @@ func (u *MockUser) SetRoles(roles []string) {
 	u.roles = roles
 }
 
-// GetEnrollmentCertificate ...
+// EnrollmentCertificate ...
 /**
  * Returns the underlying ECert representing this user’s identity.
  */
-func (u *MockUser) GetEnrollmentCertificate() []byte {
+func (u *MockUser) EnrollmentCertificate() []byte {
 	return u.enrollmentCertificate
 }
 
@@ -77,15 +83,30 @@ func (u *MockUser) SetEnrollmentCertificate(cert []byte) {
  * deprecated.
  */
 func (u *MockUser) SetPrivateKey(privateKey bccsp.Key) {
-	u.PrivateKey = privateKey
+	u.privateKey = privateKey
 }
 
-// GetPrivateKey ...
+// PrivateKey ...
 /**
  * deprecated.
  */
-func (u *MockUser) GetPrivateKey() bccsp.Key {
-	return u.PrivateKey
+func (u *MockUser) PrivateKey() bccsp.Key {
+	return u.privateKey
+}
+
+// SetMspID sets the MSP for this user
+func (u *MockUser) SetMspID(mspID string) {
+	u.mspID = mspID
+}
+
+// MspID returns the MSP for this user
+func (u *MockUser) MspID() string {
+	return u.mspID
+}
+
+// Identity returns MockUser's serialized identity
+func (u *MockUser) Identity() ([]byte, error) {
+	return []byte("test"), nil
 }
 
 // GenerateTcerts ...

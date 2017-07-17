@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -37,15 +37,15 @@ var installCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running installAction: %v", err)
-			return
 		}
 	},
 }
 
-// Cmd returns the install command
 func getInstallCmd() *cobra.Command {
 	flags := installCmd.Flags()
 	common.Config().InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. localhost:7051")
@@ -57,7 +57,7 @@ func getInstallCmd() *cobra.Command {
 }
 
 type installAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newInstallAction(flags *pflag.FlagSet) (*installAction, error) {
@@ -67,44 +67,43 @@ func newInstallAction(flags *pflag.FlagSet) (*installAction, error) {
 }
 
 func (action *installAction) invoke() error {
-	fmt.Printf("Installing chaincode %s on peers:\n", common.Config().ChaincodeID())
-	for _, peer := range action.Peers() {
-		fmt.Printf("-- %s\n", peer.GetURL())
-	}
-
-	err := installChaincode(action.Client(), action.Peers(), common.Config().ChaincodeID(), common.Config().ChaincodePath(), common.Config().ChaincodeVersion())
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("...successfuly installed chaincode %s on peers:\n", common.Config().ChaincodeID())
-	for _, peer := range action.Peers() {
-		fmt.Printf("-- %s\n", peer.GetURL())
+	for orgID, peers := range action.PeersByOrg() {
+		fmt.Printf("Installing chaincode %s on org[%s] peers:\n", common.Config().ChaincodeID(), orgID)
+		for _, peer := range peers {
+			fmt.Printf("-- %s\n", peer.URL())
+		}
+		err := action.installChaincode(orgID, peers)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func installChaincode(client api.FabricClient, targets []api.Peer, chaincodeID string, chaincodePath string, chaincodeVersion string) error {
+func (action *installAction) installChaincode(orgID string, targets []apifabclient.Peer) error {
+	context := action.SetUserContext(action.OrgAdminUser(orgID))
+	defer context.Restore()
+
 	var errors []error
 
-	transactionProposalResponse, _, err := client.InstallChaincode(chaincodeID, chaincodePath, chaincodeVersion, nil, targets)
+	transactionProposalResponse, _, err := action.Client().InstallChaincode(common.Config().ChaincodeID(), common.Config().ChaincodePath(), common.Config().ChaincodeVersion(), nil, targets)
 	if err != nil {
 		return fmt.Errorf("InstallChaincode returned error: %v", err)
 	}
 
-	ccIDVersion := chaincodeID + "." + chaincodeVersion
+	ccIDVersion := common.Config().ChaincodeID() + "." + common.Config().ChaincodeVersion()
 
 	for _, v := range transactionProposalResponse {
 		if v.Err != nil {
 			if strings.Contains(v.Err.Error(), ccIDVersion+" exists") {
 				// Ignore
-				common.Config().Logger().Infof("Chaincode %s already installed on peer: %s.\n", ccIDVersion, v.Endorser)
+				fmt.Printf("Chaincode %s already installed on peer: %s.\n", ccIDVersion, v.Endorser)
 			} else {
 				errors = append(errors, fmt.Errorf("installCC returned error from peer %s: %v", v.Endorser, v.Err))
 			}
 		} else {
-			common.Config().Logger().Infof("...successfuly installed chaincode %s on peer %s.\n", ccIDVersion, v.Endorser)
+			fmt.Printf("...successfuly installed chaincode %s on peer %s.\n", ccIDVersion, v.Endorser)
 		}
 	}
 

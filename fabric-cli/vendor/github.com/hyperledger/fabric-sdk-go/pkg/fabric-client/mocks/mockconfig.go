@@ -8,8 +8,11 @@ package mocks
 
 import (
 	"crypto/x509"
+	"time"
 
-	api "github.com/hyperledger/fabric-sdk-go/api"
+	config "github.com/hyperledger/fabric-sdk-go/api/apiconfig"
+
+	"fmt"
 
 	bccspFactory "github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/spf13/viper"
@@ -17,62 +20,76 @@ import (
 
 // MockConfig ...
 type MockConfig struct {
+	tlsEnabled bool
+	errorCase  bool
 }
 
 // NewMockConfig ...
-func NewMockConfig() api.Config {
+func NewMockConfig() config.Config {
 	return &MockConfig{}
 }
 
-//GetServerURL Read configuration option for the fabric CA server URL
-func (c *MockConfig) GetServerURL() string {
-	return ""
+// NewMockConfigCustomized ...
+func NewMockConfigCustomized(tlsEnabled bool, errorCase bool) config.Config {
+	return &MockConfig{tlsEnabled: tlsEnabled, errorCase: errorCase}
 }
 
-//GetServerCertFiles Read configuration option for the server certificate files
-func (c *MockConfig) GetServerCertFiles() []string {
-	return nil
+// CAConfig not implemented
+func (c *MockConfig) CAConfig(org string) (*config.CAConfig, error) {
+	return nil, nil
 }
 
-//GetFabricCAClientKeyFile Read configuration option for the fabric CA client key file
-func (c *MockConfig) GetFabricCAClientKeyFile() string {
-	return ""
+//CAServerCertFiles Read configuration option for the server certificate files
+func (c *MockConfig) CAServerCertFiles(org string) ([]string, error) {
+	return nil, nil
 }
 
-//GetFabricCAClientCertFile Read configuration option for the fabric CA client cert file
-func (c *MockConfig) GetFabricCAClientCertFile() string {
-	return ""
+//CAClientKeyFile Read configuration option for the fabric CA client key file
+func (c *MockConfig) CAClientKeyFile(org string) (string, error) {
+	return "", nil
 }
 
-//GetFabricCATLSEnabledFlag Read configuration option for the fabric CA TLS flag
-func (c *MockConfig) GetFabricCATLSEnabledFlag() bool {
-	return false
+//CAClientCertFile Read configuration option for the fabric CA client cert file
+func (c *MockConfig) CAClientCertFile(org string) (string, error) {
+	return "", nil
 }
 
-// GetFabricClientViper returns the internal viper instance used by the
+//TimeoutOrDefault not implemented
+func (c *MockConfig) TimeoutOrDefault(config.ConnectionType) time.Duration {
+	return 0
+}
+
+// FabricClientViper returns the internal viper instance used by the
 // SDK to read configuration options
-func (c *MockConfig) GetFabricClientViper() *viper.Viper {
+func (c *MockConfig) FabricClientViper() *viper.Viper {
 	return nil
 }
 
-// GetPeersConfig Retrieves the fabric peers from the config file provided
-func (c *MockConfig) GetPeersConfig() ([]api.PeerConfig, error) {
+// PeersConfig Retrieves the fabric peers from the config file provided
+func (c *MockConfig) PeersConfig(org string) ([]config.PeerConfig, error) {
+	return nil, nil
+}
+
+// PeerConfig Retrieves a specific peer from the configuration by org and name
+func (c *MockConfig) PeerConfig(org string, name string) (*config.PeerConfig, error) {
 	return nil, nil
 }
 
 // IsTLSEnabled ...
 func (c *MockConfig) IsTLSEnabled() bool {
-	return false
+	return c.tlsEnabled
 }
 
-// GetTLSCACertPool ...
-func (c *MockConfig) GetTLSCACertPool(tlsCertificate string) (*x509.CertPool, error) {
+// TLSCACertPool ...
+func (c *MockConfig) TLSCACertPool(tlsCertificate string) (*x509.CertPool, error) {
+	if c.errorCase {
+		return nil, fmt.Errorf("just to test error scenario")
+	}
 	return nil, nil
 }
 
-// GetTLSCACertPoolFromRoots ...
-func (c *MockConfig) GetTLSCACertPoolFromRoots(ordererRootCAs [][]byte) (*x509.CertPool, error) {
-	return nil, nil
+// SetTLSCACertPool ...
+func (c *MockConfig) SetTLSCACertPool(pool *x509.CertPool) {
 }
 
 // IsSecurityEnabled ...
@@ -85,68 +102,58 @@ func (c *MockConfig) TcertBatchSize() int {
 	return 0
 }
 
-// GetSecurityAlgorithm ...
-func (c *MockConfig) GetSecurityAlgorithm() string {
+// SecurityAlgorithm ...
+func (c *MockConfig) SecurityAlgorithm() string {
 	return ""
 }
 
-// GetSecurityLevel ...
-func (c *MockConfig) GetSecurityLevel() int {
+// SecurityLevel ...
+func (c *MockConfig) SecurityLevel() int {
 	return 0
 
 }
 
-// GetOrdererHost ...
-func (c *MockConfig) GetOrdererHost() string {
+// OrderersConfig returns a list of defined orderers
+func (c *MockConfig) OrderersConfig() ([]config.OrdererConfig, error) {
+	return nil, nil
+}
+
+// RandomOrdererConfig not implemented
+func (c *MockConfig) RandomOrdererConfig() (*config.OrdererConfig, error) {
+	return nil, nil
+}
+
+// OrdererConfig not implemented
+func (c *MockConfig) OrdererConfig(name string) (*config.OrdererConfig, error) {
+	return nil, nil
+}
+
+// MspID ...
+func (c *MockConfig) MspID(org string) (string, error) {
+	return "", nil
+}
+
+// KeyStorePath ...
+func (c *MockConfig) KeyStorePath() string {
 	return ""
 }
 
-// GetOrdererPort ...
-func (c *MockConfig) GetOrdererPort() string {
+// CAKeyStorePath not implemented
+func (c *MockConfig) CAKeyStorePath() string {
 	return ""
 }
 
-// GetOrdererTLSServerHostOverride ...
-func (c *MockConfig) GetOrdererTLSServerHostOverride() string {
+// CryptoConfigPath ...
+func (c *MockConfig) CryptoConfigPath() string {
 	return ""
 }
 
-// GetOrdererTLSCertificate ...
-func (c *MockConfig) GetOrdererTLSCertificate() string {
-	return ""
-}
-
-// GetFabricCAID ...
-func (c *MockConfig) GetFabricCAID() string {
-	return ""
-}
-
-//GetFabricCAName Read the fabric CA name
-func (c *MockConfig) GetFabricCAName() string {
-	return ""
-}
-
-// GetKeyStorePath ...
-func (c *MockConfig) GetKeyStorePath() string {
-	return ""
-}
-
-// GetFabricCAHomeDir ...
-func (c *MockConfig) GetFabricCAHomeDir() string {
-	return ""
-}
-
-// GetFabricCAMspDir ...
-func (c *MockConfig) GetFabricCAMspDir() string {
-	return ""
-}
-
-// GetCryptoConfigPath ...
-func (c *MockConfig) GetCryptoConfigPath() string {
-	return ""
-}
-
-// GetCSPConfig ...
-func (c *MockConfig) GetCSPConfig() *bccspFactory.FactoryOpts {
+// CSPConfig ...
+func (c *MockConfig) CSPConfig() *bccspFactory.FactoryOpts {
 	return nil
+}
+
+// NetworkConfig not implemented
+func (c *MockConfig) NetworkConfig() (*config.NetworkConfig, error) {
+	return nil, nil
 }

@@ -30,11 +30,12 @@ func newFabricCLICmd() *cobra.Command {
 
 	flags := mainCmd.PersistentFlags()
 	common.Config().InitLoggingLevel(flags)
-	common.Config().InitUser(flags)
-	common.Config().InitPassword(flags)
+	common.Config().InitUserName(flags)
+	common.Config().InitUserPassword(flags)
 	common.Config().InitConfigFile(flags)
-	common.Config().InitCertificate(flags)
+	common.Config().InitOrdererTLSCertificate(flags)
 	common.Config().InitPrintFormat(flags)
+	common.Config().InitOrgIDs(flags)
 
 	mainCmd.AddCommand(chaincode.Cmd())
 	mainCmd.AddCommand(query.Cmd())

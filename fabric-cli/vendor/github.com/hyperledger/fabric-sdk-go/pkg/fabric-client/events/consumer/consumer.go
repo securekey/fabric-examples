@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	api "github.com/hyperledger/fabric-sdk-go/api"
+	apiconfig "github.com/hyperledger/fabric-sdk-go/api/apiconfig"
+	fab "github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	fc "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/internal"
 	"github.com/hyperledger/fabric/bccsp"
 	consumer "github.com/hyperledger/fabric/events/consumer"
@@ -38,11 +39,11 @@ type eventsClient struct {
 	TLSCertificate        string
 	TLSServerHostOverride string
 	clientConn            *grpc.ClientConn
-	client                api.FabricClient
+	client                fab.FabricClient
 }
 
 //NewEventsClient Returns a new grpc.ClientConn to the configured local PEER.
-func NewEventsClient(client api.FabricClient, peerAddress string, certificate string, serverhostoverride string, regTimeout time.Duration, adapter consumer.EventAdapter) (api.EventsClient, error) {
+func NewEventsClient(client fab.FabricClient, peerAddress string, certificate string, serverhostoverride string, regTimeout time.Duration, adapter consumer.EventAdapter) (fab.EventsClient, error) {
 	var err error
 	if regTimeout < 100*time.Millisecond {
 		regTimeout = 100 * time.Millisecond
@@ -55,11 +56,11 @@ func NewEventsClient(client api.FabricClient, peerAddress string, certificate st
 }
 
 //newEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
-func newEventsClientConnectionWithAddress(peerAddress string, certificate string, serverhostoverride string, config api.Config) (*grpc.ClientConn, error) {
+func newEventsClientConnectionWithAddress(peerAddress string, certificate string, serverhostoverride string, config apiconfig.Config) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTimeout(time.Second*3))
+	opts = append(opts, grpc.WithTimeout(config.TimeoutOrDefault(apiconfig.EventHub)))
 	if config.IsTLSEnabled() {
-		tlsCaCertPool, err := config.GetTLSCACertPool(certificate)
+		tlsCaCertPool, err := config.TLSCACertPool(certificate)
 		if err != nil {
 			return nil, err
 		}
@@ -88,8 +89,8 @@ func (ec *eventsClient) send(emsg *ehpb.Event) error {
 	if err != nil {
 		return fmt.Errorf("Error marshaling message: %s", err)
 	}
-	signature, err := fc.SignObjectWithKey(payload, user.GetPrivateKey(),
-		&bccsp.SHAOpts{}, nil, ec.client.GetCryptoSuite())
+	signature, err := fc.SignObjectWithKey(payload, user.PrivateKey(),
+		&bccsp.SHAOpts{}, nil, ec.client.CryptoSuite())
 	if err != nil {
 		return fmt.Errorf("Error signing message: %s", err)
 	}
@@ -100,7 +101,10 @@ func (ec *eventsClient) send(emsg *ehpb.Event) error {
 
 // RegisterAsync - registers interest in a event and doesn't wait for a response
 func (ec *eventsClient) RegisterAsync(ies []*ehpb.Interest) error {
-	creator, err := ec.client.GetIdentity()
+	if ec.client.UserContext() == nil {
+		return fmt.Errorf("User context needs to be set")
+	}
+	creator, err := ec.client.UserContext().Identity()
 	if err != nil {
 		return fmt.Errorf("Error getting creator: %v", err)
 	}
@@ -233,7 +237,7 @@ func (ec *eventsClient) processEvents() error {
 
 //Start establishes connection with Event hub and registers interested events with it
 func (ec *eventsClient) Start() error {
-	conn, err := newEventsClientConnectionWithAddress(ec.peerAddress, ec.TLSCertificate, ec.TLSServerHostOverride, ec.client.GetConfig())
+	conn, err := newEventsClientConnectionWithAddress(ec.peerAddress, ec.TLSCertificate, ec.TLSServerHostOverride, ec.client.Config())
 	if err != nil {
 		return fmt.Errorf("Could not create client conn to %s (%v)", ec.peerAddress, err)
 	}

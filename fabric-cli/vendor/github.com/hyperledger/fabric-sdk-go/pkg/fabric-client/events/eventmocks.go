@@ -12,7 +12,8 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/hyperledger/fabric-sdk-go/api"
+	fab "github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	client "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client"
 	mocks "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/mocks"
 
@@ -48,7 +49,7 @@ type mockEventClientFactory struct {
 	clients []*mockEventClient
 }
 
-func (mecf *mockEventClientFactory) newEventsClient(client api.FabricClient, peerAddress string, certificate string, serverHostOverride string, regTimeout time.Duration, adapter fcConsumer.EventAdapter) (api.EventsClient, error) {
+func (mecf *mockEventClientFactory) newEventsClient(client fab.FabricClient, peerAddress string, certificate string, serverHostOverride string, regTimeout time.Duration, adapter fcConsumer.EventAdapter) (fab.EventsClient, error) {
 	mec := &mockEventClient{
 		PeerAddress: peerAddress,
 		RegTimeout:  regTimeout,
@@ -110,20 +111,15 @@ func (mec *mockEventClient) Stop() error {
 	return nil
 }
 
-func createMockedEventHub(t *testing.T) (*eventHub, *mockEventClientFactory) {
+func createMockedEventHub(t *testing.T) (*EventHub, *mockEventClientFactory) {
 	// Initialize bccsp factories before calling get client
-	err := bccspFactory.InitFactories(mocks.NewMockConfig().GetCSPConfig())
+	err := bccspFactory.InitFactories(mocks.NewMockConfig().CSPConfig())
 	if err != nil {
 		t.Fatalf("Failed getting ephemeral software-based BCCSP [%s]", err)
 	}
-	eh, err := NewEventHub(client.NewClient(mocks.NewMockConfig()))
+	eventHub, err := NewEventHub(client.NewClient(mocks.NewMockConfig()))
 	if err != nil {
 		t.Fatalf("Error creating event hub: %v", err)
-	}
-	eventHub, ok := eh.(*eventHub)
-	if !ok {
-		t.Fatalf("Could not create eventHub")
-		return nil, nil
 	}
 
 	var clientFactory mockEventClientFactory
@@ -323,7 +319,7 @@ func (b *MockCCBlockEventBuilder) buildChaincodeEvent() *pb.ChaincodeEvent {
 	}
 }
 
-func generateTxID() string {
+func generateTxID() apitxn.TransactionID {
 	nonce, err := internal.GenerateRandomNonce()
 	if err != nil {
 		panic(fmt.Errorf("error generating nonce: %v", err))
@@ -334,5 +330,11 @@ func generateTxID() string {
 	if err != nil {
 		panic(fmt.Errorf("error hashing nonce: %v", err))
 	}
-	return hex.EncodeToString(digest)
+
+	txnid := apitxn.TransactionID{
+		ID:    hex.EncodeToString(digest),
+		Nonce: nonce,
+	}
+
+	return txnid
 }

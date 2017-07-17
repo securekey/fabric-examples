@@ -25,15 +25,15 @@ var queryInfoCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.run()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running queryInfoAction: %v", err)
-			return
 		}
 	},
 }
 
-// getQueryInfoCmd returns the Query block action command
 func getQueryInfoCmd() *cobra.Command {
 	flags := queryInfoCmd.Flags()
 	common.Config().InitTxID(flags)
@@ -43,7 +43,7 @@ func getQueryInfoCmd() *cobra.Command {
 }
 
 type queryInfoAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newQueryInfoAction(flags *pflag.FlagSet) (*queryInfoAction, error) {
@@ -53,12 +53,15 @@ func newQueryInfoAction(flags *pflag.FlagSet) (*queryInfoAction, error) {
 }
 
 func (action *queryInfoAction) run() error {
-	chain, err := action.NewChannel()
+	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error initializing chain: %v", err)
+		return fmt.Errorf("Error getting channel client: %v", err)
 	}
 
-	info, err := chain.QueryInfo()
+	context := action.SetUserContext(action.OrgAdminUser(common.Config().OrgID()))
+	defer context.Restore()
+
+	info, err := channelClient.QueryInfo()
 	if err != nil {
 		return err
 	}

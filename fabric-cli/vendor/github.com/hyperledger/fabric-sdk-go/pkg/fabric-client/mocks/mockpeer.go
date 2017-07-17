@@ -11,7 +11,8 @@ import (
 	"encoding/pem"
 	"errors"
 
-	api "github.com/hyperledger/fabric-sdk-go/api"
+	fab "github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 
 	pb "github.com/hyperledger/fabric/protos/peer"
 )
@@ -22,6 +23,7 @@ type MockPeer struct {
 	MockURL   string
 	MockRoles []string
 	MockCert  *pem.Block
+	Payload   []byte
 }
 
 // ConnectEventSource does not connect anywhere
@@ -30,7 +32,7 @@ func (p *MockPeer) ConnectEventSource() {
 }
 
 // IsEventListened always returns true
-func (p *MockPeer) IsEventListened(event string, chain api.Channel) (bool, error) {
+func (p *MockPeer) IsEventListened(event string, chain fab.Channel) (bool, error) {
 	return true, nil
 }
 
@@ -44,8 +46,8 @@ func (p *MockPeer) RemoveListener(eventListenerRef string) (bool, error) {
 	return false, errors.New("Not implemented")
 }
 
-// GetName returns the mock peer's mock name
-func (p MockPeer) GetName() string {
+// Name returns the mock peer's mock name
+func (p MockPeer) Name() string {
 	return p.MockName
 }
 
@@ -54,8 +56,17 @@ func (p *MockPeer) SetName(name string) {
 	p.MockName = name
 }
 
-// GetRoles returns the mock peer's mock roles
-func (p *MockPeer) GetRoles() []string {
+// MSPID gets the Peer mspID.
+func (p *MockPeer) MSPID() string {
+	return ""
+}
+
+// SetMSPID sets the Peer mspID.
+func (p *MockPeer) SetMSPID(mspID string) {
+}
+
+// Roles returns the mock peer's mock roles
+func (p *MockPeer) Roles() []string {
 	return p.MockRoles
 }
 
@@ -64,8 +75,8 @@ func (p *MockPeer) SetRoles(roles []string) {
 	p.MockRoles = roles
 }
 
-// GetEnrollmentCertificate returns the mock peer's mock enrollment certificate
-func (p *MockPeer) GetEnrollmentCertificate() *pem.Block {
+// EnrollmentCertificate returns the mock peer's mock enrollment certificate
+func (p *MockPeer) EnrollmentCertificate() *pem.Block {
 	return p.MockCert
 }
 
@@ -74,16 +85,17 @@ func (p *MockPeer) SetEnrollmentCertificate(pem *pem.Block) {
 	p.MockCert = pem
 }
 
-// GetURL returns the mock peer's mock URL
-func (p *MockPeer) GetURL() string {
+// URL returns the mock peer's mock URL
+func (p *MockPeer) URL() string {
 	return p.MockURL
 }
 
-// SendProposal does not send anything anywhere but returns an empty mock ProposalResponse
-func (p *MockPeer) SendProposal(tp *api.TransactionProposal) (*api.TransactionProposalResponse, error) {
-	return &api.TransactionProposalResponse{
+// ProcessTransactionProposal does not send anything anywhere but returns an empty mock ProposalResponse
+func (p *MockPeer) ProcessTransactionProposal(tp apitxn.TransactionProposal) (apitxn.TransactionProposalResult, error) {
+	return apitxn.TransactionProposalResult{
 		Endorser:         p.MockURL,
 		Proposal:         tp,
-		ProposalResponse: &pb.ProposalResponse{},
+		ProposalResponse: &pb.ProposalResponse{Response: &pb.Response{Message: "success", Status: 99, Payload: p.Payload}},
 	}, nil
+
 }

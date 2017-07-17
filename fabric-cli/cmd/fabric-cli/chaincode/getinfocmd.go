@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	"github.com/spf13/cobra"
@@ -36,15 +37,15 @@ var getInfoCmd = &cobra.Command{
 			return
 		}
 
+		defer action.Terminate()
+
 		err = action.invoke()
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while running getAction: %v", err)
-			return
 		}
 	},
 }
 
-// Cmd returns the install command
 func getGetInfoCmd() *cobra.Command {
 	flags := getInfoCmd.Flags()
 	common.Config().InitPeerURL(flags)
@@ -54,7 +55,7 @@ func getGetInfoCmd() *cobra.Command {
 }
 
 type getInfoAction struct {
-	common.ActionImpl
+	common.Action
 }
 
 func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
@@ -67,19 +68,29 @@ func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
 }
 
 func (action *getInfoAction) invoke() error {
-	channel, err := action.NewChannel()
+	channel, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error initializing channel: %v", err)
+		return fmt.Errorf("Error retrieving channel client: %v", err)
 	}
 
 	var args []string
-	args = append(args, "getccdata")
 	args = append(args, common.Config().ChannelID())
 	args = append(args, common.Config().ChaincodeID())
 
-	cdbytes, err := common.QueryChaincode(channel, action.Peers(), lifecycleSCC, common.Config().ChannelID(), args)
+	peer := action.Peers()[0]
+	orgID, err := action.OrgOfPeer(peer.URL())
 	if err != nil {
-		return fmt.Errorf("Error instantiating chaincode: %v", err)
+		return err
+	}
+
+	context := action.SetUserContext(action.OrgUser(orgID))
+	defer context.Restore()
+
+	fmt.Printf("querying chaincode chaincode info for %s on peer: %s...\n", common.Config().ChaincodeID(), peer.URL())
+
+	cdbytes, err := QueryChaincode(channel, []apifabclient.Peer{peer}, lifecycleSCC, common.Config().ChannelID(), "getccdata", args)
+	if err != nil {
+		return fmt.Errorf("Error querying for chaincode info: %v", err)
 	}
 
 	ccData := &ccprovider.ChaincodeData{}

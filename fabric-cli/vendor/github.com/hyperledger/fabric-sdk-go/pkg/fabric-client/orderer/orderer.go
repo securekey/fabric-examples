@@ -7,11 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package orderer
 
 import (
-	"crypto/x509"
 	"fmt"
-	"time"
 
-	api "github.com/hyperledger/fabric-sdk-go/api"
+	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
+	fab "github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/hyperledger/fabric/protos/common"
@@ -23,46 +22,37 @@ import (
 
 var logger = logging.MustGetLogger("fabric_sdk_go")
 
-type orderer struct {
+// Orderer allows a client to broadcast a transaction.
+type Orderer struct {
 	url            string
 	grpcDialOption []grpc.DialOption
 }
 
-// CreateNewOrdererWithRootCAs Returns a new Orderer instance using the passed in orderer root CAs
-func CreateNewOrdererWithRootCAs(url string, ordererRootCAs [][]byte, serverHostOverride string, config api.Config) (api.Orderer, error) {
+// NewOrderer Returns a Orderer instance
+func NewOrderer(url string, certificate string, serverHostOverride string, config apiconfig.Config) (*Orderer, error) {
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTimeout(config.TimeoutOrDefault(apiconfig.Orderer)))
 	if config.IsTLSEnabled() {
-		tlsCaCertPool, err := config.GetTLSCACertPoolFromRoots(ordererRootCAs)
+		tlsCaCertPool, err := config.TLSCACertPool(certificate)
 		if err != nil {
 			return nil, err
 		}
-		return createNewOrdererWithCertPool(url, tlsCaCertPool, serverHostOverride), nil
+		creds := credentials.NewClientTLSFromCert(tlsCaCertPool, serverHostOverride)
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		opts = append(opts, grpc.WithInsecure())
 	}
-	return createNewOrdererWithoutTLS(url), nil
+	return &Orderer{url: url, grpcDialOption: opts}, nil
 }
 
-func createNewOrdererWithoutTLS(url string) api.Orderer {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTimeout(time.Second*3))
-	opts = append(opts, grpc.WithInsecure())
-	return &orderer{url: url, grpcDialOption: opts}
-}
-
-func createNewOrdererWithCertPool(url string, tlsCaCertPool *x509.CertPool, serverHostOverride string) api.Orderer {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTimeout(time.Second*3))
-	creds := credentials.NewClientTLSFromCert(tlsCaCertPool, serverHostOverride)
-	opts = append(opts, grpc.WithTransportCredentials(creds))
-	return &orderer{url: url, grpcDialOption: opts}
-}
-
-// GetURL Get the Orderer url. Required property for the instance objects.
-// @returns {string} The address of the Orderer
-func (o *orderer) GetURL() string {
+// URL Get the Orderer url. Required property for the instance objects.
+// Returns the address of the Orderer.
+func (o *Orderer) URL() string {
 	return o.url
 }
 
 // SendBroadcast Send the created transaction to Orderer.
-func (o *orderer) SendBroadcast(envelope *api.SignedEnvelope) (*common.Status, error) {
+func (o *Orderer) SendBroadcast(envelope *fab.SignedEnvelope) (*common.Status, error) {
 	conn, err := grpc.Dial(o.url, o.grpcDialOption...)
 	if err != nil {
 		return nil, err
@@ -111,10 +101,8 @@ func (o *orderer) SendBroadcast(envelope *api.SignedEnvelope) (*common.Status, e
 
 // SendDeliver sends a deliver request to the ordering service and returns the
 // blocks requested
-// @param {*SignedEnvelope} envelope that contains the seek request for blocks
-// @return {chan *common.Block} channel with the requested blocks
-// @return {chan error} a buffered channel that can contain a single error
-func (o *orderer) SendDeliver(envelope *api.SignedEnvelope) (chan *common.Block,
+// envelope: contains the seek request for blocks
+func (o *Orderer) SendDeliver(envelope *fab.SignedEnvelope) (chan *common.Block,
 	chan error) {
 	responses := make(chan *common.Block)
 	errors := make(chan error, 1)
@@ -181,21 +169,4 @@ func (o *orderer) SendDeliver(envelope *api.SignedEnvelope) (chan *common.Block,
 	}()
 
 	return responses, errors
-}
-
-// NewOrderer Returns a Orderer instance
-func NewOrderer(url string, certificate string, serverHostOverride string, config api.Config) (api.Orderer, error) {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTimeout(time.Second*3))
-	if config.IsTLSEnabled() {
-		tlsCaCertPool, err := config.GetTLSCACertPool(certificate)
-		if err != nil {
-			return nil, err
-		}
-		creds := credentials.NewClientTLSFromCert(tlsCaCertPool, serverHostOverride)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
-		opts = append(opts, grpc.WithInsecure())
-	}
-	return &orderer{url: url, grpcDialOption: opts}, nil
 }
