@@ -78,7 +78,7 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 	var allPeers []apifabclient.Peer
 	allPeersByOrg := make(map[string][]apifabclient.Peer)
 	for _, orgID := range Config().OrgIDs() {
-		peersConfig, err := Config().PeersConfig(orgID)
+		peersConfig, err := Config().PeersConfig("peer" + orgID)
 		if err != nil {
 			return fmt.Errorf("Error getting peer configs for org [%s]: %v", orgID, err)
 		}
