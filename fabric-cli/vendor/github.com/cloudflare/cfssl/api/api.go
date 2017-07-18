@@ -35,7 +35,7 @@ func (f HandlerFunc) Handle(w http.ResponseWriter, r *http.Request) error {
 }
 
 func HandleError(w http.ResponseWriter, err error) (code int) {
-   return handleError(w,err)
+	return handleError(w, err)
 }
 
 // handleError is the centralised error handling and reporting.

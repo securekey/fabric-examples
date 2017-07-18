@@ -51,7 +51,7 @@ func getDefaultImplPreEnrolledUser(client apifabclient.FabricClient, keyDir stri
 	if err != nil {
 		return nil, fmt.Errorf("Error finding the enrollment cert path: %v", err)
 	}
-	mspID, err := client.Config().MspID(orgName)
+	mspID, err := client.Config().MspID("peer" + orgName)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading MSP ID config: %s", err)
 	}
