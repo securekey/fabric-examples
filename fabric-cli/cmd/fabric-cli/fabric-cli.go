@@ -35,6 +35,7 @@ func newFabricCLICmd() *cobra.Command {
 	common.Config().InitConfigFile(flags)
 	common.Config().InitOrdererTLSCertificate(flags)
 	common.Config().InitPrintFormat(flags)
+	common.Config().InitWriter(flags)
 	common.Config().InitOrgIDs(flags)
 
 	mainCmd.AddCommand(chaincode.Cmd())

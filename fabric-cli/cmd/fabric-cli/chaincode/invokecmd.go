@@ -53,6 +53,7 @@ func getInvokeCmd() *cobra.Command {
 	common.Config().InitArgs(flags)
 	common.Config().InitIterations(flags)
 	common.Config().InitSleepTime(flags)
+	common.Config().InitTimeout(flags)
 	return invokeCmd
 }
 
@@ -60,6 +61,12 @@ type invokeAction struct {
 	common.Action
 	numInvoked uint32
 	done       chan bool
+}
+
+type txStatus struct {
+	txID string
+	code pb.TxValidationCode
+	err  error
 }
 
 func newInvokeAction(flags *pflag.FlagSet) (*invokeAction, error) {
@@ -89,7 +96,7 @@ func (action *invokeAction) invoke() error {
 			select {
 			case <-action.done:
 				completed = true
-			case <-time.After(5 * time.Second):
+			case <-time.After(common.Config().Timeout() * time.Millisecond):
 				fmt.Printf("... completed %d out of %d\n", action.numInvoked, common.Config().Iterations())
 			}
 		}
@@ -122,7 +129,8 @@ func (action *invokeAction) invokeMultiple(chain apifabclient.Channel, fctn stri
 }
 
 func (action *invokeAction) doInvoke(channel apifabclient.Channel, fctn string, args []string) error {
-	common.Config().Logger().Infof("Invoking chaincode: %s on channel: %s, peers: %s, function: %s, args: [%v]\n", common.Config().ChaincodeID(), common.Config().ChannelID(), asString(action.Peers()), fctn, args)
+	common.Config().Logger().Infof("Invoking chaincode: %s on channel: %s, peers: %s, function: %s, args: [%v]\n",
+		common.Config().ChaincodeID(), common.Config().ChannelID(), asString(action.Peers()), fctn, args)
 
 	targets := make([]apitxn.ProposalProcessor, len(action.Peers()))
 	for i, p := range action.Peers() {
@@ -140,20 +148,28 @@ func (action *invokeAction) doInvoke(channel apifabclient.Channel, fctn string, 
 		return fmt.Errorf("SendTransactionProposal return error: %v", err)
 	}
 
+	action.Printer().PrintTxProposalResponses(transactionProposalResponses)
+
 	var proposalErr error
 	var responses []*apitxn.TransactionProposalResponse
 	for _, v := range transactionProposalResponses {
 		if v.Err != nil {
-			common.Config().Logger().Errorf("invoke - TxID: %s, Endorser %s returned error: %v\n", txnID.ID, v.Endorser, v.Err)
-			proposalErr = fmt.Errorf("invoke Endorser %s return error: %v", v.Endorser, v.Err)
+			proposalErr = v.Err
 		} else {
 			responses = append(responses, v)
-			common.Config().Logger().Debugf("invoke - TxID: %s, Endorser %s returned ProposalResponse: %v\n", txnID.ID, v.Endorser, v.ProposalResponse.Response.Payload)
 		}
 	}
 
 	if len(responses) == 0 {
+		if proposalErr == nil {
+			return fmt.Errorf("no responses were received")
+		}
 		return proposalErr
+	}
+
+	status, err := action.registerTxEvent(txnID)
+	if err != nil {
+		return err
 	}
 
 	common.Config().Logger().Debugf("invoke - Committing transaction - TxID: %s ...\n", txnID.ID)
@@ -162,11 +178,15 @@ func (action *invokeAction) doInvoke(channel apifabclient.Channel, fctn string, 
 		return err
 	}
 
-	if err = action.waitForTx(txnID); err != nil {
-		return err
+	select {
+	case s := <-status:
+		if s.code == pb.TxValidationCode_VALID {
+			return nil
+		}
+		return fmt.Errorf("invoke Error received from eventhub for txid(%s). Code: %s, Details: %s", txnID.ID, s.code, s.err)
+	case <-time.After(common.Config().Timeout() * time.Millisecond):
+		return fmt.Errorf("timed out waiting to receive block event for txid(%s)", txnID.ID)
 	}
-
-	return nil
 }
 
 func (action *invokeAction) commit(channel apifabclient.Channel, responses []*apitxn.TransactionProposalResponse) error {
@@ -183,31 +203,19 @@ func (action *invokeAction) commit(channel apifabclient.Channel, responses []*ap
 	return nil
 }
 
-func (action *invokeAction) waitForTx(txnID apitxn.TransactionID) error {
-	done := make(chan bool)
-	fail := make(chan error)
-
+func (action *invokeAction) registerTxEvent(txnID apitxn.TransactionID) (chan txStatus, error) {
 	eventHub, err := action.EventHub()
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	status := make(chan txStatus)
 
 	eventHub.RegisterTxEvent(txnID, func(txID string, code pb.TxValidationCode, err error) {
-		if err != nil {
-			fail <- err
-		} else {
-			done <- true
-		}
+		status <- txStatus{txID: txID, code: code, err: err}
 	})
 
-	select {
-	case <-done:
-		return nil
-	case <-fail:
-		return fmt.Errorf("invoke Error received from eventhub for txid(%s) error(%v)", txnID.ID, fail)
-	case <-time.After(time.Second * 60):
-		return fmt.Errorf("timed out waiting to receive block event for txid(%s)", txnID.ID)
-	}
+	return status, nil
 }
 
 func asString(peers []apifabclient.Peer) string {

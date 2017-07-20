@@ -11,6 +11,11 @@ import (
 
 	"sync"
 
+	"strings"
+
+	"io"
+
+	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
 	"github.com/hyperledger/fabric-sdk-go/api/apifabca"
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	deffab "github.com/hyperledger/fabric-sdk-go/def/fabapi"
@@ -41,6 +46,7 @@ type Action struct {
 	channelClientInit sync.Once
 	eventHubInit      sync.Once
 	initError         error
+	Writer            io.Writer
 }
 
 // Initialize initializes the action using the given flags
@@ -68,7 +74,9 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		return fmt.Errorf("Error initializing SDK: %s", err)
 	}
 
-	logging.SetLevel(levelFromName(Config().LoggingLevel()), loggerName)
+	level := levelFromName(Config().LoggingLevel())
+
+	logging.SetLevel(level, "")
 
 	action.client = sdk.SystemClient
 	action.mspClient = sdk.MSPClient
@@ -109,22 +117,29 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 	}
 
 	if Config().PeerURL() != "" {
-		peer, err := getPeer(allPeers, Config().PeerURL())
+		peers, err := getPeers(allPeers, Config().PeerURL())
 		if err != nil {
 			return err
 		}
 
-		Config().Logger().Debugf("Selected Peer: Name: %s, URL: %s\n", peer.Name(), peer.URL())
-		orgID := action.orgIDByPeer[peer.URL()]
+		action.peers = peers
+		action.peersByOrg = make(map[string][]apifabclient.Peer)
 
-		action.peers = []apifabclient.Peer{peer}
-		action.peersByOrg = map[string][]apifabclient.Peer{orgID: action.peers}
+		Config().Logger().Debugf("Selected Peers:\n")
+		for _, peer := range peers {
+			Config().Logger().Debugf("- Name: %s, URL: %s\n", peer.Name(), peer.URL())
+			orgID := action.orgIDByPeer[peer.URL()]
+			if orgID == "" {
+				return fmt.Errorf("unable to find org for peer: %s", peer.URL())
+			}
+			action.peersByOrg[orgID] = append(action.peersByOrg[orgID], peer)
+		}
 	} else {
 		action.peers = allPeers
 		action.peersByOrg = allPeersByOrg
 	}
 
-	action.printer = NewPrinter(AsOutputFormat(Config().PrintFormat()))
+	action.printer = NewPrinter(AsOutputFormat(Config().PrintFormat()), AsWriterType(Config().Writer()))
 
 	action.SetUserContext(action.OrgUser(Config().OrgID()))
 
@@ -182,6 +197,14 @@ func (action *Action) EventHub() (apifabclient.EventHub, error) {
 	return action.eventHub, action.initError
 }
 
+// Peer returns the first peer in the list of selected peers
+func (action *Action) Peer() apifabclient.Peer {
+	if len(action.peers) == 0 {
+		return nil
+	}
+	return action.peers[0]
+}
+
 // Peers returns the peers
 func (action *Action) Peers() []apifabclient.Peer {
 	return action.peers
@@ -206,9 +229,30 @@ func (action *Action) Client() apifabclient.FabricClient {
 	return action.client
 }
 
+// OrgID returns the organization ID of the first peer in the list of peers
+func (action *Action) OrgID() string {
+	if len(action.Peers()) == 0 {
+		// This shouldn't happen since we should already have passed validation
+		panic("no peers to choose from!")
+	}
+
+	peer := action.Peers()[0]
+	orgID, err := action.OrgOfPeer(peer.URL())
+	if err != nil {
+		// This shouldn't happen since we should already have passed validation
+		panic(err)
+	}
+	return orgID
+}
+
 // User returns the enrolled user. If the user doesn't exist then a new user is enrolled.
 func (action *Action) User() (apifabclient.User, error) {
+	context := action.SetUserContext(nil)
+	defer context.Restore()
+
 	userName := Config().UserName()
+
+	Config().Logger().Debugf("Loading user %s...\n", userName)
 
 	user, err := action.Client().LoadUserFromStateStore(userName)
 	if err != nil {
@@ -216,6 +260,7 @@ func (action *Action) User() (apifabclient.User, error) {
 	}
 
 	if user == nil {
+		Config().Logger().Infof("Enrolling user %s...\n", userName)
 		mspID, err := Config().MspID(Config().OrgID())
 		if err != nil {
 			return nil, fmt.Errorf("Error reading MSP ID config: %s", err)
@@ -229,6 +274,8 @@ func (action *Action) User() (apifabclient.User, error) {
 			return nil, fmt.Errorf("SaveUserToStateStore returned error: %v", err)
 		}
 	}
+
+	Config().Logger().Debugf("Returning user %s\n", user.Name())
 
 	return user, nil
 }
@@ -325,70 +372,71 @@ func levelFromName(levelName string) logging.Level {
 	}
 }
 
-func getPeer(allPeers []apifabclient.Peer, peerURL string) (apifabclient.Peer, error) {
-	if peerURL == "" {
+func getPeers(allPeers []apifabclient.Peer, peerURLs string) ([]apifabclient.Peer, error) {
+	if peerURLs == "" {
 		return nil, nil
 	}
 
-	var selectedPeer apifabclient.Peer
+	s := strings.Split(peerURLs, ",")
+
+	var selectedPeers []apifabclient.Peer
 	for _, peer := range allPeers {
-		if peer.URL() == peerURL {
-			selectedPeer = peer
-			break
+		if containsString(s, peer.URL()) {
+			selectedPeers = append(selectedPeers, peer)
 		}
 	}
-	if selectedPeer == nil {
-		return nil, fmt.Errorf("Peer not found for URL: %s", peerURL)
+	if len(selectedPeers) != len(s) {
+		return nil, fmt.Errorf("one or more peers is invalid: %s", peerURLs)
 	}
-	return selectedPeer, nil
+	return selectedPeers, nil
 }
 
-func (action *Action) getEventHub(orgID, peerURL string) (apifabclient.EventHub, error) {
+func (action *Action) getEventHub() (apifabclient.EventHub, error) {
 	eventHub, err := events.NewEventHub(action.Client())
 	if err != nil {
 		return nil, fmt.Errorf("Error creating new event hub: %v", err)
 	}
-	foundEventHub := false
 
-	peerConfig, err := Config().PeersConfig(orgID)
+	peerConfig, err := action.peerConfig()
 	if err != nil {
-		return nil, fmt.Errorf("Error reading peer config: %v", err)
+		return nil, err
 	}
 
-	for _, p := range peerConfig {
-		if peerURL == "" || AsURL(p.Host, p.Port) == peerURL {
-			Config().Logger().Infof("******* EventHub connect to %s peer (%s:%d) *******\n", orgID, p.EventHost, p.EventPort)
-			eventHub.SetPeerAddr(fmt.Sprintf("%s:%d", p.EventHost, p.EventPort), p.TLS.Certificate, p.TLS.ServerHostOverride)
-			foundEventHub = true
-			break
+	Config().Logger().Infof("Connecting to event hub at %s:%d ...\n", peerConfig.EventHost, peerConfig.EventPort)
+
+	eventHub.SetPeerAddr(fmt.Sprintf("%s:%d", peerConfig.EventHost, peerConfig.EventPort), peerConfig.TLS.Certificate, peerConfig.TLS.ServerHostOverride)
+
+	return eventHub, nil
+}
+
+func (action *Action) peerConfig() (*apiconfig.PeerConfig, error) {
+	peersConfig, err := Config().PeersConfig(action.OrgID())
+	if err != nil {
+		return nil, fmt.Errorf("Error reading peers config for %s: %v", action.OrgID(), err)
+	}
+
+	peer := action.Peer()
+
+	for _, p := range peersConfig {
+		if peer.URL() == "" || AsURL(p.Host, p.Port) == peer.URL() {
+			return &p, nil
 		}
 	}
 
-	if !foundEventHub {
-		return nil, fmt.Errorf("No EventHub configuration found for peer %s", peerURL)
-	}
-
-	return eventHub, nil
+	return nil, fmt.Errorf("No configuration found for peer %s", peer.URL())
 }
 
 func (action *Action) newEventHub() (apifabclient.EventHub, error) {
 	Config().Logger().Debugf("initEventHub - Initializing %s...\n")
 
-	var orgID string
-	peerURL := Config().PeerURL()
-	if peerURL != "" {
-		var err error
-		if orgID, err = action.OrgOfPeer(peerURL); err != nil {
-			return nil, err
-		}
-	} else {
-		orgID = Config().OrgID()
-	}
-
-	eventHub, err := action.getEventHub(orgID, peerURL)
+	eventHub, err := action.getEventHub()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get event hub: %s", err)
 	}
+
+	// Set the user to the org admin since the 'register' message must be signed by a user in the peer's MSP
+	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
+	defer context.Restore()
 
 	if err := eventHub.Connect(); err != nil {
 		return nil, fmt.Errorf("unable to connect to event hub: %s", err)
@@ -424,4 +472,13 @@ func (action *Action) newChannelClient() (apifabclient.Channel, error) {
 	}
 
 	return channelClient, nil
+}
+
+func containsString(sarr []string, s string) bool {
+	for _, str := range sarr {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }

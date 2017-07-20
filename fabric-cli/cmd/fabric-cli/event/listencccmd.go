@@ -74,14 +74,7 @@ func (action *listenccAction) invoke() error {
 	fmt.Printf("Registering CC event on chaincode [%s] and event [%s]\n", common.Config().ChaincodeID(), common.Config().ChaincodeEvent())
 
 	registration := eventHub.RegisterChaincodeEvent(common.Config().ChaincodeID(), common.Config().ChaincodeEvent(), func(event *apifabclient.ChaincodeEvent) {
-		fmt.Printf("Received CC event:\n")
-		fmt.Printf("- Channel ID: %s\n", event.ChannelID)
-		fmt.Printf("- Chaincode ID: %s\n", event.ChaincodeID)
-		fmt.Printf("- Event: %s\n", event.EventName)
-		fmt.Printf("- TxID: %s\n", event.TxID)
-		fmt.Printf("- Payload: %v\n", event.Payload)
-
-		fmt.Println("Press <enter> to terminate")
+		action.Printer().PrintChaincodeEvent(event)
 	})
 
 	action.WaitForEnter()

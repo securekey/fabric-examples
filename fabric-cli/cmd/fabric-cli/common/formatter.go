@@ -89,26 +89,48 @@ type Formatter interface {
 	Print(frmt string, vars ...interface{})
 }
 
+// NewFormatter returns a new Formatter given the format and writer type. nil is returned
+// if no formatter exists for the given type
+func NewFormatter(format OutputFormat, writerType WriterType) Formatter {
+	switch format {
+	case JSON:
+		return &jsonFormatter{formatter: formatter{writer: NewWriter(writerType)}}
+	case DISPLAY:
+		return &displayFormatter{formatter: formatter{writer: NewWriter(writerType)}}
+	default:
+		return nil
+	}
+}
+
+type formatter struct {
+	writer Writer
+}
+
+func (f *formatter) write(format string, a ...interface{}) error {
+	return f.writer.Write(format, a...)
+}
+
 type displayFormatter struct {
+	formatter
 	indent int
 }
 
 func (p *displayFormatter) Print(frmt string, vars ...interface{}) {
 	format := fmt.Sprintf("%s%s\n", p.prefix(), frmt)
-	fmt.Printf(format, vars...)
+	p.write(format, vars...)
 }
 
 func (p *displayFormatter) Field(field string, value interface{}) {
 	if value != nil {
-		fmt.Printf("%s%s: %v\n", p.prefix(), field, value)
+		p.write("%s%s: %v\n", p.prefix(), field, value)
 	} else {
-		fmt.Printf("%s%s:\n", p.prefix(), field)
+		p.write("%s%s:\n", p.prefix(), field)
 	}
 }
 
 func (p *displayFormatter) Element(element string) {
 	if element != "" {
-		fmt.Printf("%s%s:\n", p.prefix(), element)
+		p.write("%s%s:\n", p.prefix(), element)
 	}
 	p.indent++
 }
@@ -119,7 +141,7 @@ func (p *displayFormatter) ElementEnd() {
 
 func (p *displayFormatter) Array(element string) {
 	if element != "" {
-		fmt.Printf("%s%s:\n", p.prefix(), element)
+		p.write("%s%s:\n", p.prefix(), element)
 	}
 	p.indent++
 }
@@ -131,7 +153,7 @@ func (p *displayFormatter) ArrayEnd() {
 
 func (p *displayFormatter) Item(element string, index interface{}) {
 	if element != "" {
-		fmt.Printf("%s%s[%v]:\n", p.prefix(), element, index)
+		p.write("%s%s[%v]:\n", p.prefix(), element, index)
 	}
 	p.indent++
 }
@@ -142,20 +164,20 @@ func (p *displayFormatter) ItemEnd() {
 
 func (p *displayFormatter) ItemValue(element string, index interface{}, value interface{}) {
 	if element != "" {
-		fmt.Printf("%s%s[%v]: %v\n", p.prefix(), element, index, value)
+		p.write("%s%s[%v]: %v\n", p.prefix(), element, index, value)
 	}
 }
 
 func (p *displayFormatter) Value(value interface{}) {
-	fmt.Printf("%s%v", p.prefix(), value)
+	p.write("%s%v", p.prefix(), value)
 }
 
 func (p *displayFormatter) PrintHeader() {
-	fmt.Printf("%s\n", strings.Repeat("*", 100))
+	p.write("%s\n", strings.Repeat("*", 100))
 }
 
 func (p *displayFormatter) PrintFooter() {
-	fmt.Printf("%s\n", strings.Repeat("*", 100))
+	p.write("%s\n", strings.Repeat("*", 100))
 }
 
 func (p *displayFormatter) prefix() string {
@@ -167,6 +189,7 @@ func (p *displayFormatter) prefix() string {
 }
 
 type jsonFormatter struct {
+	formatter
 	commaRequired bool
 }
 
@@ -176,13 +199,13 @@ func (p *jsonFormatter) Print(frmt string, vars ...interface{}) {
 
 func (p *jsonFormatter) Field(field string, value interface{}) {
 	if p.commaRequired {
-		fmt.Printf(",")
+		p.write(",")
 	}
 
 	if value != nil {
-		fmt.Printf("\"%s\":\"%v\"", field, value)
+		p.write("\"%s\":\"%v\"", field, value)
 	} else {
-		fmt.Printf("\"%s\":\"null\"", field)
+		p.write("\"%s\":\"null\"", field)
 	}
 
 	p.commaRequired = true
@@ -190,44 +213,44 @@ func (p *jsonFormatter) Field(field string, value interface{}) {
 
 func (p *jsonFormatter) Element(element string) {
 	if p.commaRequired {
-		fmt.Printf(",")
+		p.write(",")
 		p.commaRequired = false
 	}
 	if element != "" {
-		fmt.Printf("\"%s\":{", element)
+		p.write("\"%s\":{", element)
 	} else {
-		fmt.Printf("{")
+		p.write("{")
 	}
 }
 
 func (p *jsonFormatter) ElementEnd() {
-	fmt.Printf("}")
+	p.write("}")
 	p.commaRequired = true
 }
 
 func (p *jsonFormatter) Array(element string) {
 	if p.commaRequired {
-		fmt.Printf(",")
+		p.write(",")
 		p.commaRequired = false
 	}
 	if element != "" {
-		fmt.Printf("\"%s\":[", element)
+		p.write("\"%s\":[", element)
 	} else {
-		fmt.Printf("[")
+		p.write("[")
 	}
 }
 
 func (p *jsonFormatter) ArrayEnd() {
-	fmt.Printf("]")
+	p.write("]")
 	p.commaRequired = true
 }
 
 func (p *jsonFormatter) Item(element string, index interface{}) {
 	if p.commaRequired {
-		fmt.Printf(",")
+		p.write(",")
 		p.commaRequired = false
 	}
-	fmt.Printf("{")
+	p.write("{")
 }
 
 func (p *jsonFormatter) ItemEnd() {
@@ -236,16 +259,16 @@ func (p *jsonFormatter) ItemEnd() {
 
 func (p *jsonFormatter) ItemValue(element string, index interface{}, value interface{}) {
 	if p.commaRequired {
-		fmt.Printf(",")
+		p.write(",")
 	}
-	fmt.Printf("\"%v\"", value)
+	p.write("\"%v\"", value)
 }
 
 func (p *jsonFormatter) Value(value interface{}) {
 	if p.commaRequired {
-		fmt.Printf(",")
+		p.write(",")
 	}
-	fmt.Printf("\"%v\"", value)
+	p.write("\"%v\"", value)
 }
 
 func (p *jsonFormatter) PrintHeader() {
@@ -255,6 +278,6 @@ func (p *jsonFormatter) PrintHeader() {
 
 func (p *jsonFormatter) PrintFooter() {
 	p.ElementEnd()
-	fmt.Printf("\n")
+	p.write("\n")
 	p.commaRequired = false
 }

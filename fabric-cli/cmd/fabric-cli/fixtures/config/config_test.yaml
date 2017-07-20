@@ -17,7 +17,7 @@ client:
     size: 200
 
  logging:
-  level: info
+  level: warning
 
  keystore:
   path: /tmp/msp

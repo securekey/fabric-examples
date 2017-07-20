@@ -19,14 +19,15 @@ var queryInstalledCmd = &cobra.Command{
 	Short: "Query installed chaincodes",
 	Long:  "Queries the chaincodes installed to the specified peer",
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.Config().PeerURL() == "" {
-			fmt.Printf("\nMust specify the peer URL\n\n")
-			cmd.HelpFunc()(cmd, args)
-			return
-		}
 		action, err := newqueryInstalledAction(cmd.Flags())
 		if err != nil {
 			common.Config().Logger().Criticalf("Error while initializing queryInstalledAction: %v", err)
+			return
+		}
+
+		if len(action.Peers()) != 1 {
+			fmt.Printf("\nMust specify exactly one peer URL\n\n")
+			cmd.HelpFunc()(cmd, args)
 			return
 		}
 
@@ -55,25 +56,15 @@ func newqueryInstalledAction(flags *pflag.FlagSet) (*queryInstalledAction, error
 }
 
 func (action *queryInstalledAction) run() error {
-	peer := action.PeerFromURL(common.Config().PeerURL())
-	if peer == nil {
-		return fmt.Errorf("unknown peer URL: %s", common.Config().PeerURL())
-	}
-
-	orgID, err := action.OrgOfPeer(peer.URL())
-	if err != nil {
-		return err
-	}
-
-	context := action.SetUserContext(action.OrgAdminUser(orgID))
+	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
 	defer context.Restore()
 
-	response, err := action.Client().QueryInstalledChaincodes(peer)
+	response, err := action.Client().QueryInstalledChaincodes(action.Peer())
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Chaincodes for peer [%s]\n", peer.URL())
+	fmt.Printf("Chaincodes for peer [%s]\n", action.Peer().URL())
 	action.Printer().PrintChaincodes(response.Chaincodes)
 	return nil
 }

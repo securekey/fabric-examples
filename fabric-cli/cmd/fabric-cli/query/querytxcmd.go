@@ -64,7 +64,7 @@ func (action *queryTXAction) run() error {
 		return fmt.Errorf("Error getting channel client: %v", err)
 	}
 
-	context := action.SetUserContext(action.OrgAdminUser(common.Config().OrgID()))
+	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
 	defer context.Restore()
 
 	tx, err := channelClient.QueryTransaction(common.Config().TxID())

@@ -10,6 +10,8 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	fabricConfig "github.com/hyperledger/fabric/common/config"
 	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/hyperledger/fabric/core/common/ccprovider"
@@ -48,24 +50,21 @@ type Printer interface {
 
 	// PrintChaincodeData outputs ChaincodeData
 	PrintChaincodeData(ccdata *ccprovider.ChaincodeData)
+
+	// PrintTxProposalResponses outputs the proposal responses
+	PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse)
+
+	// PrintChaincodeEvent outputs a chaincode event
+	PrintChaincodeEvent(event *apifabclient.ChaincodeEvent)
 }
 
 type printer struct {
 	formatter Formatter
 }
 
-// NewPrinter returns a new Printer of the given OutputFormat
-func NewPrinter(format OutputFormat) Printer {
-	var f Formatter
-	switch format {
-	case JSON:
-		f = &jsonFormatter{}
-		break
-	case DISPLAY:
-		f = &displayFormatter{}
-		break
-	}
-	return &printer{formatter: f}
+// NewPrinter returns a new Printer of the given OutputFormat and WriterType
+func NewPrinter(format OutputFormat, writerType WriterType) Printer {
+	return &printer{formatter: NewFormatter(format, writerType)}
 }
 
 func (p *printer) PrintBlockchainInfo(info *fabricCommon.BlockchainInfo) {
@@ -165,7 +164,7 @@ func (p *printer) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 
 	p.PrintHeader()
 
-	p.field("Id", ccData.Id)
+	p.field("Id", Base64URLEncode(ccData.Id))
 	p.field("Name", ccData.Name)
 	p.field("Version", ccData.Version)
 	p.field("Escc", ccData.Escc)
@@ -190,6 +189,67 @@ func (p *printer) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 	p.elementEnd()
 
 	p.PrintFooter()
+}
+
+func (p *printer) PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse) {
+	if p.formatter == nil {
+		for i, response := range responses {
+			fmt.Printf("Response[%d]: %v\n", i, response)
+		}
+		return
+	}
+
+	p.PrintHeader()
+	p.array("")
+	for i, response := range responses {
+		p.item("Response", i)
+		p.printTxProposalResponse(response)
+		p.itemEnd()
+	}
+	p.arrayEnd()
+	p.PrintFooter()
+}
+
+func (p *printer) PrintChaincodeEvent(event *apifabclient.ChaincodeEvent) {
+	if p.formatter == nil {
+		fmt.Printf("%v\n", event)
+		return
+	}
+
+	p.PrintHeader()
+	p.field("ChaincodeID", event.ChaincodeID)
+	p.field("EventName", event.EventName)
+	p.field("ChannelID", event.ChannelID)
+	p.field("TxID", event.TxID)
+	p.field("Payload", Base64URLEncode(event.Payload))
+	p.PrintFooter()
+}
+
+func (p *printer) printTxProposalResponse(response *apitxn.TransactionProposalResponse) {
+	p.field("Endorser", response.Endorser)
+	p.field("Err", response.Err)
+	p.field("Status", response.Status)
+	p.element("ProposalResponse")
+	p.printProposalResponse(response.ProposalResponse)
+	p.elementEnd()
+}
+
+func (p *printer) printProposalResponse(response *fabricPeer.ProposalResponse) {
+	if response == nil {
+		return
+	}
+	p.element("Response")
+	p.printResponse(response.Response)
+	p.elementEnd()
+	p.element("Endorsement")
+	p.printEndorsement(response.Endorsement)
+	p.elementEnd()
+}
+
+func (p *printer) printResponse(response *fabricPeer.Response) {
+	p.field("Message", response.Message)
+	p.field("Status", response.Status)
+	p.field("Payload", string(response.Payload))
 }
 
 func (p *printer) printCDSData(cdsData *ccprovider.CDSData) {

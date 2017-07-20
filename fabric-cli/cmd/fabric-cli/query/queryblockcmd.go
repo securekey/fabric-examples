@@ -67,7 +67,7 @@ func (action *queryBlockAction) invoke() error {
 		return fmt.Errorf("Error getting channel client: %v", err)
 	}
 
-	context := action.SetUserContext(action.OrgAdminUser(common.Config().OrgID()))
+	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
 	defer context.Restore()
 
 	var block *fabricCommon.Block
