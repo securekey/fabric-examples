@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package channel
 
 import (
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +22,7 @@ var channelCmd = &cobra.Command{
 
 // Cmd returns the channel command
 func Cmd() *cobra.Command {
-	common.Config().InitChannelID(channelCmd.Flags())
+	cliconfig.InitChannelID(channelCmd.Flags())
 
 	channelCmd.AddCommand(getChannelCreateCmd())
 	channelCmd.AddCommand(getChannelJoinCmd())

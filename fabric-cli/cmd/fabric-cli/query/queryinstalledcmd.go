@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -21,7 +22,7 @@ var queryInstalledCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		action, err := newqueryInstalledAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing queryInstalledAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing queryInstalledAction: %v", err)
 			return
 		}
 
@@ -35,13 +36,13 @@ var queryInstalledCmd = &cobra.Command{
 
 		err = action.run()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running queryInstalledAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running queryInstalledAction: %v", err)
 		}
 	},
 }
 
 func getQueryInstalledCmd() *cobra.Command {
-	common.Config().InitPeerURL(queryInstalledCmd.Flags())
+	cliconfig.InitPeerURL(queryInstalledCmd.Flags())
 	return queryInstalledCmd
 }
 
@@ -56,10 +57,17 @@ func newqueryInstalledAction(flags *pflag.FlagSet) (*queryInstalledAction, error
 }
 
 func (action *queryInstalledAction) run() error {
-	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
-	defer context.Restore()
+	user, err := action.OrgAdminUser(action.OrgID())
+	if err != nil {
+		return err
+	}
 
-	response, err := action.Client().QueryInstalledChaincodes(action.Peer())
+	client, err := action.ClientForUser(action.OrgID(), user)
+	if err != nil {
+		return err
+	}
+
+	response, err := client.QueryInstalledChaincodes(action.Peer())
 	if err != nil {
 		return err
 	}

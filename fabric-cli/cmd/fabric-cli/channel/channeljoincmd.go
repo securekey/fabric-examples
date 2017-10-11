@@ -10,7 +10,10 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	channel "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/channel"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -22,7 +25,7 @@ var chainJoinCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		action, err := newChannelJoinAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing channelJoinAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing channelJoinAction: %v", err)
 			return
 		}
 
@@ -30,16 +33,16 @@ var chainJoinCmd = &cobra.Command{
 
 		err = action.invoke()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running channelJoinAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running channelJoinAction: %v", err)
 		}
 	},
 }
 
 func getChannelJoinCmd() *cobra.Command {
 	flags := chainJoinCmd.Flags()
-	common.Config().InitChannelID(flags)
-	common.Config().InitOrdererURL(flags)
-	common.Config().InitPeerURL(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitOrdererURL(flags)
+	cliconfig.InitPeerURL(flags)
 	return chainJoinCmd
 }
 
@@ -54,16 +57,16 @@ func newChannelJoinAction(flags *pflag.FlagSet) (*channelJoinAction, error) {
 		return nil, err
 	}
 	if len(action.Peers()) == 0 {
-		return nil, fmt.Errorf("at least one peer is required for join")
+		return nil, errors.Errorf("at least one peer is required for join")
 	}
 	return action, nil
 }
 
 func (action *channelJoinAction) invoke() error {
-	fmt.Printf("Attempting to join channel: %s\n", common.Config().ChannelID())
+	fmt.Printf("Attempting to join channel: %s\n", cliconfig.Config().ChannelID())
 
 	for orgID, peers := range action.PeersByOrg() {
-		fmt.Printf("Joining channel %s on org[%s] peers:\n", common.Config().ChaincodeID(), orgID)
+		fmt.Printf("Joining channel %s on org[%s] peers:\n", cliconfig.Config().ChaincodeID(), orgID)
 		for _, peer := range peers {
 			fmt.Printf("-- %s\n", peer.URL())
 		}
@@ -76,37 +79,37 @@ func (action *channelJoinAction) invoke() error {
 }
 
 func (action *channelJoinAction) joinChannel(orgID string, peers []apifabclient.Peer) error {
-	channelClient, err := action.ChannelClient()
+	cliconfig.Config().Logger().Debugf("Joining channel [%s]...\n", cliconfig.Config().ChannelID())
+
+	channelClient, err := action.OrgAdminChannelClient(orgID)
 	if err != nil {
-		return fmt.Errorf("Error getting channel client: %v", err)
+		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
 
-	context := action.SetUserContext(action.OrgAdminUser(orgID))
-	defer context.Restore()
-
-	txnID, err := action.Client().NewTxnID()
+	// FIXME: Remove this when SDK includes a SystemChannelClient
+	channelContext := channelClient.(*channel.Channel).ClientContext()
+	txnID, err := channelContext.NewTxnID()
 	if err != nil {
 		return err
 	}
 
 	genesisBlock, err := channelClient.GenesisBlock(&apifabclient.GenesisBlockRequest{TxnID: txnID})
 	if err != nil {
-		return fmt.Errorf("Error getting genesis block: %v", err)
+		return errors.Errorf("Error getting genesis block: %v", err)
 	}
 
-	if txnID, err = action.Client().NewTxnID(); err != nil {
-		return err
-	}
+	ctx := channelClient.(*channel.Channel).ClientContext()
+	cliconfig.Config().Logger().Errorf("*****Channel client context: Name [%s], MSPID [%s]\n", ctx.UserContext().Name(), ctx.UserContext().MspID())
 
 	if err = channelClient.JoinChannel(&apifabclient.JoinChannelRequest{
 		Targets:      peers,
 		GenesisBlock: genesisBlock,
 		TxnID:        txnID,
 	}); err != nil {
-		return fmt.Errorf("Could not join channel: %v", err)
+		return errors.Errorf("Could not join channel: %v", err)
 	}
 
-	fmt.Printf("Channel %s joined!\n", common.Config().ChannelID())
+	fmt.Printf("Channel %s joined!\n", cliconfig.Config().ChannelID())
 
 	return nil
 }
