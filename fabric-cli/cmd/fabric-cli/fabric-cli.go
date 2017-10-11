@@ -11,7 +11,7 @@ import (
 
 	chaincode "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode"
 	channel "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/channel"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/event"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/query"
 	"github.com/spf13/cobra"
@@ -29,14 +29,14 @@ func newFabricCLICmd() *cobra.Command {
 	}
 
 	flags := mainCmd.PersistentFlags()
-	common.Config().InitLoggingLevel(flags)
-	common.Config().InitUserName(flags)
-	common.Config().InitUserPassword(flags)
-	common.Config().InitConfigFile(flags)
-	common.Config().InitOrdererTLSCertificate(flags)
-	common.Config().InitPrintFormat(flags)
-	common.Config().InitWriter(flags)
-	common.Config().InitOrgIDs(flags)
+	cliconfig.InitConfigFile(flags)
+	cliconfig.InitLoggingLevel(flags)
+	cliconfig.InitUserName(flags)
+	cliconfig.InitUserPassword(flags)
+	cliconfig.InitOrdererTLSCertificate(flags)
+	cliconfig.InitPrintFormat(flags)
+	cliconfig.InitWriter(flags)
+	cliconfig.InitOrgIDs(flags)
 
 	mainCmd.AddCommand(chaincode.Cmd())
 	mainCmd.AddCommand(query.Cmd())
