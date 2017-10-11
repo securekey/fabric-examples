@@ -11,8 +11,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
-	"github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -26,14 +27,14 @@ var getInfoCmd = &cobra.Command{
 	Short: "Get chaincode info",
 	Long:  "Retrieves details about the chaincode",
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.Config().ChaincodeID() == "" {
+		if cliconfig.Config().ChaincodeID() == "" {
 			fmt.Printf("\nMust specify the chaincode ID\n\n")
 			cmd.HelpFunc()(cmd, args)
 			return
 		}
 		action, err := newGetInfoAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing getAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing getAction: %v", err)
 			return
 		}
 
@@ -41,16 +42,16 @@ var getInfoCmd = &cobra.Command{
 
 		err = action.invoke()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running getAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running getAction: %v", err)
 		}
 	},
 }
 
 func getGetInfoCmd() *cobra.Command {
 	flags := getInfoCmd.Flags()
-	common.Config().InitPeerURL(flags)
-	common.Config().InitChannelID(flags)
-	common.Config().InitChaincodeID(flags)
+	cliconfig.Config().InitPeerURL(flags)
+	cliconfig.Config().InitChannelID(flags)
+	cliconfig.Config().InitChaincodeID(flags)
 	return getInfoCmd
 }
 
@@ -68,46 +69,35 @@ func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
 }
 
 func (action *getInfoAction) invoke() error {
-	channel, err := action.ChannelClient()
+	channelClient, err := action.ChannelClient()
 	if err != nil {
 		return fmt.Errorf("Error retrieving channel client: %v", err)
 	}
 
-	var args []string
-	args = append(args, common.Config().ChannelID())
-	args = append(args, common.Config().ChaincodeID())
+	var args [][]byte
+	args = append(args, []byte(cliconfig.Config().ChannelID()))
+	args = append(args, []byte(cliconfig.Config().ChaincodeID()))
 
-	peer := action.Peers()[0]
-	orgID, err := action.OrgOfPeer(peer.URL())
-	if err != nil {
-		return err
-	}
+	peer := action.Peer()
 
-	context := action.SetUserContext(action.OrgUser(orgID))
-	defer context.Restore()
+	fmt.Printf("querying chaincode info for %s on peer: %s...\n", cliconfig.Config().ChaincodeID(), peer.URL())
 
-	fmt.Printf("querying chaincode chaincode info for %s on peer: %s...\n", common.Config().ChaincodeID(), peer.URL())
-
-	responses, _, err := channel.SendTransactionProposal(apitxn.ChaincodeInvokeRequest{
-		Targets:     []apitxn.ProposalProcessor{peer},
-		Fcn:         "getccdata",
-		Args:        args,
-		ChaincodeID: lifecycleSCC,
-	})
+	response, err := channelClient.QueryWithOpts(
+		apitxn.QueryRequest{
+			Fcn:         "getccdata",
+			Args:        args,
+			ChaincodeID: lifecycleSCC,
+		},
+		apitxn.QueryOpts{
+			ProposalProcessors: []apitxn.ProposalProcessor{peer},
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("Error querying for chaincode info: %v", err)
 	}
-	if len(responses) == 0 {
-		return fmt.Errorf("Didn't receive a response from chaincode %s", lifecycleSCC)
-	}
-
-	response := responses[0]
-	if response.Err != nil {
-		return response.Err
-	}
 
 	ccData := &ccprovider.ChaincodeData{}
-	err = proto.Unmarshal(response.ProposalResponse.Response.Payload, ccData)
+	err = proto.Unmarshal(response, ccData)
 	if err != nil {
 		return fmt.Errorf("Error unmarshalling chaincode data: %v", err)
 	}

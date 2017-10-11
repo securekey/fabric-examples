@@ -10,8 +10,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
-	pb "github.com/hyperledger/fabric/protos/peer"
+	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -21,14 +22,14 @@ var listenTxCmd = &cobra.Command{
 	Short: "Listen to transaction events.",
 	Long:  "Listen to transaction events",
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.Config().TxID() == "" {
+		if cliconfig.Config().TxID() == "" {
 			fmt.Printf("\nMust specify the transaction ID\n\n")
 			cmd.HelpFunc()(cmd, args)
 			return
 		}
 		action, err := newListenTXAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing listenTxAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing listenTxAction: %v", err)
 			return
 		}
 
@@ -36,15 +37,15 @@ var listenTxCmd = &cobra.Command{
 
 		err = action.invoke()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running listenTxAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running listenTxAction: %v", err)
 		}
 	},
 }
 
 func getListenTXCmd() *cobra.Command {
 	flags := listenTxCmd.Flags()
-	common.Config().InitTxID(flags)
-	common.Config().InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. localhost:7051")
+	cliconfig.Config().InitTxID(flags)
+	cliconfig.Config().InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
 	return listenTxCmd
 }
 
@@ -67,9 +68,9 @@ func (action *listentxAction) invoke() error {
 		return err
 	}
 
-	fmt.Printf("Registering TX event for TxID [%s]\n", common.Config().TxID())
+	fmt.Printf("Registering TX event for TxID [%s]\n", cliconfig.Config().TxID())
 
-	txnID := apitxn.TransactionID{ID: common.Config().TxID()}
+	txnID := apitxn.TransactionID{ID: cliconfig.Config().TxID()}
 	eventHub.RegisterTxEvent(txnID, func(txID string, code pb.TxValidationCode, err error) {
 		fmt.Printf("Received TX event. TxID: %s, Code: %s, Error: %s\n", txID, code, err)
 		done <- true
@@ -77,7 +78,7 @@ func (action *listentxAction) invoke() error {
 
 	action.WaitForEnter()
 
-	fmt.Printf("Unregistering TX event for TxID [%s]\n", common.Config().TxID())
+	fmt.Printf("Unregistering TX event for TxID [%s]\n", cliconfig.Config().TxID())
 	eventHub.UnregisterTxEvent(txnID)
 
 	return nil

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package query
 
 import (
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +22,7 @@ var queryCmd = &cobra.Command{
 
 // Cmd returns the query command
 func Cmd() *cobra.Command {
-	common.Config().InitChannelID(queryCmd.Flags())
+	cliconfig.Config().InitChannelID(queryCmd.Flags())
 
 	queryCmd.AddCommand(getQueryBlockCmd())
 	queryCmd.AddCommand(getQueryInfoCmd())

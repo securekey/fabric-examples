@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +22,7 @@ var chaincodeCmd = &cobra.Command{
 
 // Cmd returns the chaincode command
 func Cmd() *cobra.Command {
-	common.Config().InitChannelID(chaincodeCmd.Flags())
+	cliconfig.Config().InitChannelID(chaincodeCmd.Flags())
 
 	chaincodeCmd.AddCommand(getInstallCmd())
 	chaincodeCmd.AddCommand(getInstantiateCmd())

@@ -9,8 +9,9 @@ package event
 import (
 	"fmt"
 
-	fabricCommon "github.com/hyperledger/fabric/protos/common"
+	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -22,7 +23,7 @@ var listenBlockCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		action, err := newlistenBlockAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing listenBlockAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing listenBlockAction: %v", err)
 			return
 		}
 
@@ -30,13 +31,13 @@ var listenBlockCmd = &cobra.Command{
 
 		err = action.invoke()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running listenBlockAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running listenBlockAction: %v", err)
 		}
 	},
 }
 
 func getListenBlockCmd() *cobra.Command {
-	common.Config().InitPeerURL(listenBlockCmd.Flags(), "", "The URL of the peer on which to listen for events, e.g. localhost:7051")
+	cliconfig.Config().InitPeerURL(listenBlockCmd.Flags(), "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
 	return listenBlockCmd
 }
 

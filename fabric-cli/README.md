@@ -41,10 +41,11 @@ $ go run fabric-cli.go
 
 ## Compatability
 
-This example is compatible with the following Hyperledger Fabric commit levels:
+This example is compatible with the following Hyperledger Fabric/SDK commit levels:
 
-- fabric: v1.0.0
-- fabric-ca: v1.0.0
+- fabric: v1.0.3
+- fabric-ca: v1.0.3
+- fabric-sdk-go: master:ae5687361ea51c323d1a5cda8d2b74b066dafc4a
 
 ## Sample Usage
 
@@ -56,7 +57,7 @@ $ go run fabric-cli.go channel create --cid mychannel --txfile fixtures/channel/
 
 ###### Join a peer to a channel
 
-$ go run fabric-cli.go channel join --cid mychannel --peer localhost:7051
+$ go run fabric-cli.go channel join --cid mychannel --peer grpcs://localhost:7051
 
 ###### Join all peers in org1 to a channel
 
@@ -89,17 +90,17 @@ $ go run fabric-cli.go query block --cid mychannel --num 0 --format json
 $ go run fabric-cli.go query tx --cid mychannel --txid 29bd4fd03e657da488acfa8ae1740eebf4a6ee81399bfc501f192cb407d2328c
 
 ###### Query channels joined by a peer:
-$ go run fabric-cli.go query channels --peer localhost:7051
+$ go run fabric-cli.go query channels --peer grpcs://localhost:7051
 
 ###### Query installed chaincodes on a peer:
 
-$ go run fabric-cli.go query installed --peer localhost:7051
+$ go run fabric-cli.go query installed --peer grpcs://localhost:7051
 
 ## Chaincode
 
 ###### Install chaincode on a peer:
 
-$ go run fabric-cli.go chaincode install --cid=mychannel --peer localhost:7051 --ccp=github.com/user/somecc --ccid=somecc --v v0
+$ go run fabric-cli.go chaincode install --cid=mychannel --peer grpcs://localhost:7051 --ccp=github.com/user/somecc --ccid=somecc --v v0
 
 ###### Install chaincode on all peers of org1:
 
@@ -123,7 +124,7 @@ $ go run fabric-cli.go chaincode info --cid mychannel --ccid somecc
 
 ###### Query chaincode on a set of peers:
 
-$ go run fabric-cli.go chaincode query --ccid=somecc --args='{"Func":"query","Args":["a"]}' --peer localhost:7051,localhost:8051
+$ go run fabric-cli.go chaincode query --ccid=somecc --args='{"Func":"query","Args":["a"]}' --peer grpcs://localhost:7051,grpcs://localhost:8051
 
 ###### Invoke chaincode on all peers:
 

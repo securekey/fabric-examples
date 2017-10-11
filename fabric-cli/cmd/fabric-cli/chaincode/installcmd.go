@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -21,19 +22,19 @@ var installCmd = &cobra.Command{
 	Short: "Install chaincode.",
 	Long:  "Install chaincode",
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.Config().ChaincodeID() == "" {
+		if cliconfig.Config().ChaincodeID() == "" {
 			fmt.Printf("\nMust specify the chaincode ID\n\n")
 			cmd.HelpFunc()(cmd, args)
 			return
 		}
-		if common.Config().ChaincodePath() == "" {
+		if cliconfig.Config().ChaincodePath() == "" {
 			fmt.Printf("\nMust specify the path of the chaincode\n\n")
 			cmd.HelpFunc()(cmd, args)
 			return
 		}
 		action, err := newInstallAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing installAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing installAction: %v", err)
 			return
 		}
 
@@ -41,18 +42,18 @@ var installCmd = &cobra.Command{
 
 		err = action.invoke()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running installAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running installAction: %v", err)
 		}
 	},
 }
 
 func getInstallCmd() *cobra.Command {
 	flags := installCmd.Flags()
-	common.Config().InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. localhost:7051")
-	common.Config().InitChannelID(flags)
-	common.Config().InitChaincodeID(flags)
-	common.Config().InitChaincodePath(flags)
-	common.Config().InitChaincodeVersion(flags)
+	cliconfig.Config().InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. grpcs://localhost:7051")
+	cliconfig.Config().InitChannelID(flags)
+	cliconfig.Config().InitChaincodeID(flags)
+	cliconfig.Config().InitChaincodePath(flags)
+	cliconfig.Config().InitChaincodeVersion(flags)
 	return installCmd
 }
 
@@ -68,7 +69,7 @@ func newInstallAction(flags *pflag.FlagSet) (*installAction, error) {
 
 func (action *installAction) invoke() error {
 	for orgID, peers := range action.PeersByOrg() {
-		fmt.Printf("Installing chaincode %s on org[%s] peers:\n", common.Config().ChaincodeID(), orgID)
+		fmt.Printf("Installing chaincode %s on org[%s] peers:\n", cliconfig.Config().ChaincodeID(), orgID)
 		for _, peer := range peers {
 			fmt.Printf("-- %s\n", peer.URL())
 		}
@@ -82,17 +83,24 @@ func (action *installAction) invoke() error {
 }
 
 func (action *installAction) installChaincode(orgID string, targets []apifabclient.Peer) error {
-	context := action.SetUserContext(action.OrgAdminUser(orgID))
-	defer context.Restore()
-
 	var errors []error
 
-	transactionProposalResponse, _, err := action.Client().InstallChaincode(common.Config().ChaincodeID(), common.Config().ChaincodePath(), common.Config().ChaincodeVersion(), nil, targets)
+	user, err := action.OrgAdminUser(orgID)
+	if err != nil {
+		return err
+	}
+
+	client, err := action.ClientForUser(orgID, user)
+	if err != nil {
+		return fmt.Errorf("error creating fabric client: %s", err)
+	}
+
+	transactionProposalResponse, _, err := client.InstallChaincode(cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodePath(), cliconfig.Config().ChaincodeVersion(), nil, targets)
 	if err != nil {
 		return fmt.Errorf("InstallChaincode returned error: %v", err)
 	}
 
-	ccIDVersion := common.Config().ChaincodeID() + "." + common.Config().ChaincodeVersion()
+	ccIDVersion := cliconfig.Config().ChaincodeID() + "." + cliconfig.Config().ChaincodeVersion()
 
 	for _, v := range transactionProposalResponse {
 		if v.Err != nil {
@@ -108,7 +116,7 @@ func (action *installAction) installChaincode(orgID string, targets []apifabclie
 	}
 
 	if len(errors) > 0 {
-		common.Config().Logger().Warningf("Errors returned from InstallCC: %v\n", errors)
+		cliconfig.Config().Logger().Warningf("Errors returned from InstallCC: %v\n", errors)
 		return errors[0]
 	}
 

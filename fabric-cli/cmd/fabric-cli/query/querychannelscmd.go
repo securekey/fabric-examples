@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -21,7 +22,7 @@ var queryChannelsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		action, err := newQueryChannelsAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing queryChannelsAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing queryChannelsAction: %v", err)
 			return
 		}
 
@@ -35,13 +36,13 @@ var queryChannelsCmd = &cobra.Command{
 
 		err = action.run()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running queryChannelsAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running queryChannelsAction: %v", err)
 		}
 	},
 }
 
 func getQueryChannelsCmd() *cobra.Command {
-	common.Config().InitPeerURL(queryChannelsCmd.Flags())
+	cliconfig.Config().InitPeerURL(queryChannelsCmd.Flags())
 	return queryChannelsCmd
 }
 
@@ -56,10 +57,17 @@ func newQueryChannelsAction(flags *pflag.FlagSet) (*queryChannelsAction, error) 
 }
 
 func (action *queryChannelsAction) run() error {
-	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
-	defer context.Restore()
+	user, err := action.OrgAdminUser(action.OrgID())
+	if err != nil {
+		return err
+	}
 
-	response, err := action.Client().QueryChannels(action.Peer())
+	client, err := action.ClientForUser(action.OrgID(), user)
+	if err != nil {
+		return fmt.Errorf("error getting fabric client: %s", err)
+	}
+
+	response, err := client.QueryChannels(action.Peer())
 	if err != nil {
 		return err
 	}

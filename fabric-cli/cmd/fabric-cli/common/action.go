@@ -8,22 +8,33 @@ package common
 
 import (
 	"fmt"
-
 	"sync"
+
+	"github.com/hyperledger/fabric-sdk-go/def/fabapi"
 
 	"strings"
 
 	"io"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
-	"github.com/hyperledger/fabric-sdk-go/api/apifabca"
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	deffab "github.com/hyperledger/fabric-sdk-go/def/fabapi"
-	"github.com/hyperledger/fabric-sdk-go/pkg/config"
+	"github.com/hyperledger/fabric-sdk-go/def/fabapi/context"
+	"github.com/hyperledger/fabric-sdk-go/def/fabapi/opt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/events"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/orderer"
 	logging "github.com/op/go-logging"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/printer"
 	"github.com/spf13/pflag"
+)
+
+const (
+	// FIXME: Make configurable
+	defaultUser  = "User1" // pre-enrolled user
+	adminUser    = "admin"
+	ordererOrgID = "ordererorg"
 )
 
 // ArgStruct is used for marshalling arguments to chaincode invocations
@@ -34,37 +45,32 @@ type ArgStruct struct {
 
 // Action is the base implementation of the Action interface.
 type Action struct {
-	flags             *pflag.FlagSet
-	eventHub          apifabclient.EventHub
-	peersByOrg        map[string][]apifabclient.Peer
-	peers             []apifabclient.Peer
-	orgIDByPeer       map[string]string
-	client            apifabclient.FabricClient
-	channelClient     apifabclient.Channel
-	mspClient         apifabca.FabricCAClient
-	printer           Printer
-	channelClientInit sync.Once
-	eventHubInit      sync.Once
-	initError         error
-	Writer            io.Writer
+	flags        *pflag.FlagSet
+	eventHub     apifabclient.EventHub
+	peersByOrg   map[string][]apifabclient.Peer
+	peers        []apifabclient.Peer
+	orgIDByPeer  map[string]string
+	sdk          *fabapi.FabricSDK
+	printer      printer.Printer
+	eventHubInit sync.Once
+	initError    error
+	Writer       io.Writer
+	sessions     map[string]context.Session
 }
 
 // Initialize initializes the action using the given flags
 func (action *Action) Initialize(flags *pflag.FlagSet) error {
+	action.sessions = make(map[string]context.Session)
 	action.flags = flags
 
-	cnfg, err := config.InitConfig(Config().ConfigFile())
-	if err != nil {
+	if err := cliconfig.InitConfig(flags); err != nil {
 		return err
 	}
 
-	getConfigImpl().config = cnfg
-
 	// Create SDK setup for the integration tests
 	sdkOptions := deffab.Options{
-		ConfigManager: cnfg,
-		OrgID:         Config().OrgIDs()[0], // FIXME: Should allow connection to multiple MSPs
-		StateStoreOpts: deffab.StateStoreOpts{
+		ProviderFactory: NewProviderFactory(cliconfig.Config()),
+		StateStoreOpts: opt.StateStoreOpts{
 			Path: "/tmp/enroll_user",
 		},
 	}
@@ -73,29 +79,31 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 	if err != nil {
 		return fmt.Errorf("Error initializing SDK: %s", err)
 	}
+	action.sdk = sdk
 
-	level := levelFromName(Config().LoggingLevel())
+	level := levelFromName(cliconfig.Config().LoggingLevel())
 
 	logging.SetLevel(level, "")
-
-	action.client = sdk.SystemClient
-	action.mspClient = sdk.MSPClient
 
 	action.orgIDByPeer = make(map[string]string)
 
 	var allPeers []apifabclient.Peer
 	allPeersByOrg := make(map[string][]apifabclient.Peer)
-	for _, orgID := range Config().OrgIDs() {
-		peersConfig, err := Config().PeersConfig(orgID)
+	for _, orgID := range cliconfig.Config().OrgIDs() {
+		peersConfig, err := cliconfig.Config().PeersConfig(orgID)
 		if err != nil {
 			return fmt.Errorf("Error getting peer configs for org [%s]: %v", orgID, err)
 		}
 
 		var peers []apifabclient.Peer
 		for _, p := range peersConfig {
+			serverHostOverride := ""
+			if str, ok := p.GRPCOptions["ssl-target-name-override"].(string); ok {
+				serverHostOverride = str
+			}
 			endorser, err := deffab.NewPeer(
-				fmt.Sprintf("%s:%d", p.Host, p.Port),
-				p.TLS.Certificate, p.TLS.ServerHostOverride, Config())
+				p.URL,
+				p.TLSCACerts.Path, serverHostOverride, cliconfig.Config())
 			if err != nil {
 				return fmt.Errorf("NewPeer return error: %v", err)
 			}
@@ -106,18 +114,18 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		allPeers = append(allPeers, peers...)
 	}
 
-	if Config().Logger().IsEnabledFor(logging.DEBUG) {
-		Config().Logger().Debug("All Peers:")
+	if cliconfig.Config().Logger().IsEnabledFor(logging.DEBUG) {
+		cliconfig.Config().Logger().Debug("All Peers:")
 		for orgID, peers := range allPeersByOrg {
-			Config().Logger().Debugf("Org: %s\n", orgID)
+			cliconfig.Config().Logger().Debugf("Org: %s\n", orgID)
 			for i, peer := range peers {
-				Config().Logger().Debugf("-- Peer[%d]: MSPID: %s, Name: %s, URL: %s\n", i, peer.MSPID(), peer.Name(), peer.URL())
+				cliconfig.Config().Logger().Debugf("-- Peer[%d]: MSPID: %s, Name: %s, URL: %s\n", i, peer.MSPID(), peer.Name(), peer.URL())
 			}
 		}
 	}
 
-	if Config().PeerURL() != "" {
-		peers, err := getPeers(allPeers, Config().PeerURL())
+	if cliconfig.Config().PeerURL() != "" {
+		peers, err := getPeers(allPeers, cliconfig.Config().PeerURL())
 		if err != nil {
 			return err
 		}
@@ -125,9 +133,9 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		action.peers = peers
 		action.peersByOrg = make(map[string][]apifabclient.Peer)
 
-		Config().Logger().Debugf("Selected Peers:\n")
+		cliconfig.Config().Logger().Debugf("Selected Peers:\n")
 		for _, peer := range peers {
-			Config().Logger().Debugf("- Name: %s, URL: %s\n", peer.Name(), peer.URL())
+			cliconfig.Config().Logger().Debugf("- Name: %s, URL: %s\n", peer.Name(), peer.URL())
 			orgID := action.orgIDByPeer[peer.URL()]
 			if orgID == "" {
 				return fmt.Errorf("unable to find org for peer: %s", peer.URL())
@@ -139,9 +147,21 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		action.peersByOrg = allPeersByOrg
 	}
 
-	action.printer = NewPrinter(AsOutputFormat(Config().PrintFormat()), AsWriterType(Config().Writer()))
+	action.printer = printer.NewPrinter(printer.AsOutputFormat(cliconfig.Config().PrintFormat()), printer.AsWriterType(cliconfig.Config().Writer()))
 
-	action.SetUserContext(action.OrgUser(Config().OrgID()))
+	// context, err := sdk.NewContext(cliconfig.Config().OrgID())
+	// if err != nil {
+	// 	return fmt.Errorf("Error getting a context for org: %s", err)
+	// }
+	// action.context = context
+
+	// // action.SetUserContext(action.OrgUser(cliconfig.Config().OrgID()))
+	// user, err := action.User()
+	// if err != nil {
+	// 	return fmt.Errorf("Error getting user: %s", err)
+	// }
+
+	// action.SetUserContext(user)
 
 	return nil
 }
@@ -149,7 +169,7 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 // Terminate closes any open connections. This function should be called at the end of every command invocation.
 func (action *Action) Terminate() {
 	if action.eventHub != nil {
-		Config().Logger().Info("Disconnecting event hub")
+		cliconfig.Config().Logger().Info("Disconnecting event hub")
 		action.eventHub.Disconnect()
 	}
 }
@@ -159,28 +179,68 @@ func (action *Action) Flags() *pflag.FlagSet {
 	return action.flags
 }
 
-// ChannelClient creates a new ChannelClient
-func (action *Action) ChannelClient() (apifabclient.Channel, error) {
-	action.channelClientInit.Do(func() {
-		if channelClient, err := action.newChannelClient(); err != nil {
-			action.initError = err
-		} else {
-			action.channelClient = channelClient
-		}
-	})
-	return action.channelClient, action.initError
+// ChannelClient creates a new channel client
+func (action *Action) ChannelClient() (apitxn.ChannelClient, error) {
+	user, err := action.User()
+	if err != nil {
+		return nil, fmt.Errorf("error getting user: %s", err)
+	}
+
+	session, err := action.session(action.OrgID(), user)
+	if err != nil {
+		return nil, fmt.Errorf("error getting user session: %s", err)
+	}
+
+	return action.sdk.SessionFactory.NewChannelClient(action.sdk, session, action.sdk.ConfigProvider(), cliconfig.Config().ChannelID())
 }
 
-// SetUserContext sets the current user for the client
-// TODO: This function should disappear when the SDK introduces sessions
-func (action *Action) SetUserContext(user apifabclient.User) *UserContext {
-	context := newUserContext(action.Client())
-	action.Client().SetUserContext(user)
-	return context
+// OrgAdminChannelClient creates a new channel client for the given org in order to perform administrative functions
+func (action *Action) OrgAdminChannelClient(orgID string) (apifabclient.Channel, error) {
+	channelID := cliconfig.Config().ChannelID()
+	cliconfig.Config().Logger().Debugf("Creating new channel client for channel [%s]...", channelID)
+
+	user, err := action.OrgAdminUser(orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	fabClient, err := action.ClientForUser(orgID, user)
+	if err != nil {
+		return nil, fmt.Errorf("error creating fabric client: %s", err)
+	}
+
+	channelClient, err := fabClient.NewChannel(channelID)
+	if err != nil {
+		return nil, fmt.Errorf("error creating channel client: %v", err)
+	}
+
+	orderers, err := action.Orderers()
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving orderers: %v", err)
+	}
+
+	for _, orderer := range orderers {
+		channelClient.AddOrderer(orderer)
+	}
+
+	for _, peer := range action.Peers() {
+		channelClient.AddPeer(peer)
+	}
+
+	if err := channelClient.Initialize(nil); err != nil {
+		return nil, fmt.Errorf("Error initializing channel: %v", err)
+	}
+
+	return channelClient, nil
+}
+
+// AdminChannelClient creates a new channel client for performing administrative functions
+func (action *Action) AdminChannelClient() (apifabclient.Channel, error) {
+	return action.OrgAdminChannelClient(action.OrgID())
 }
 
 // Printer returns the Printer
-func (action *Action) Printer() Printer {
+func (action *Action) Printer() printer.Printer {
 	return action.printer
 }
 
@@ -210,6 +270,20 @@ func (action *Action) Peers() []apifabclient.Peer {
 	return action.peers
 }
 
+// ProposalProcessor returns the first proposal processor in the list of selected processors
+func (action *Action) ProposalProcessor() apitxn.ProposalProcessor {
+	return action.Peer()
+}
+
+// ProposalProcessors returns the proposal processors
+func (action *Action) ProposalProcessors() []apitxn.ProposalProcessor {
+	targets := make([]apitxn.ProposalProcessor, len(action.Peers()))
+	for i, p := range action.Peers() {
+		targets[i] = p
+	}
+	return targets
+}
+
 // PeersByOrg returns the peers mapped by organization
 func (action *Action) PeersByOrg() map[string][]apifabclient.Peer {
 	return action.peersByOrg
@@ -224,9 +298,41 @@ func (action *Action) OrgOfPeer(peerURL string) (string, error) {
 	return orgID, nil
 }
 
-// Client returns the Fabric client
-func (action *Action) Client() apifabclient.FabricClient {
-	return action.client
+// Client returns the Fabric client for the current user
+func (action *Action) Client() (apifabclient.FabricClient, error) {
+	user, err := action.User()
+	if err != nil {
+		return nil, err
+	}
+	return action.ClientForUser(action.OrgID(), user)
+}
+
+// ClientForUser returns the Fabric client for the given user
+func (action *Action) ClientForUser(orgID string, user apifabclient.User) (apifabclient.FabricClient, error) {
+	cliconfig.Config().Logger().Debugf("Create admin channel client for user [%s] in org [%s]...", user.Name(), orgID)
+	session, err := action.session(orgID, user)
+	if err != nil {
+		return nil, fmt.Errorf("error getting session for user [%s,%s]: %s", orgID, user.Name(), err)
+	}
+
+	cliconfig.Config().Logger().Infof("Creating new system client with user session[%s:%s:%s]\n", orgID, session.Identity().Name(), session.Identity().MspID())
+
+	return action.sdk.NewSystemClient(session)
+}
+
+func (action *Action) session(orgID string, user apifabclient.User) (context.Session, error) {
+	key := orgID + "_" + user.Name()
+	session := action.sessions[key]
+	if session == nil {
+		var err error
+		session, err = action.newSession(orgID, user)
+		if err != nil {
+			return nil, fmt.Errorf("error creating session for user [%s] in org [%s]: %s", user.Name(), orgID, err)
+		}
+		cliconfig.Config().Logger().Debugf("Created session for user [%s] in org [%s]", user.Name(), orgID)
+		action.sessions[key] = session
+	}
+	return session, nil
 }
 
 // OrgID returns the organization ID of the first peer in the list of peers
@@ -245,66 +351,100 @@ func (action *Action) OrgID() string {
 	return orgID
 }
 
+// GetOrgID returns the organization ID for the given MSP ID
+func (action *Action) GetOrgID(mspID string) (string, error) {
+	networkConfig, err := cliconfig.Config().NetworkConfig()
+	if err != nil {
+		return "", err
+	}
+	for orgID, orgConfig := range networkConfig.Organizations {
+		if mspID == orgConfig.MspID {
+			return orgID, nil
+		}
+	}
+	return "", fmt.Errorf("unable to find org ID for MSP [%s]", mspID)
+}
+
 // User returns the enrolled user. If the user doesn't exist then a new user is enrolled.
 func (action *Action) User() (apifabclient.User, error) {
-	context := action.SetUserContext(nil)
-	defer context.Restore()
-
-	userName := Config().UserName()
-
-	Config().Logger().Debugf("Loading user %s...\n", userName)
-
-	user, err := action.Client().LoadUserFromStateStore(userName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load user: %s: %s", userName, err)
+	userName := cliconfig.Config().UserName()
+	if userName == "" {
+		userName = defaultUser
 	}
+	return action.OrgUser(action.OrgID(), userName)
+}
+
+func (action *Action) newUser(orgID, userName, pwd string) (apifabclient.User, error) {
+	cliconfig.Config().Logger().Infof("Loading user %s...\n", userName)
+
+	var user apifabclient.User
+	// user, err := action.Client().LoadUserFromStateStore(userName)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to load user: %s: %s", userName, err)
+	// }
 
 	if user == nil {
-		Config().Logger().Infof("Enrolling user %s...\n", userName)
-		mspID, err := Config().MspID(Config().OrgID())
+		cliconfig.Config().Logger().Infof("Enrolling user %s...\n", userName)
+		mspID, err := cliconfig.Config().MspID(orgID)
 		if err != nil {
-			return nil, fmt.Errorf("Error reading MSP ID config: %s", err)
+			return nil, fmt.Errorf("error reading MSP ID config: %s", err)
 		}
-		user, err = deffab.NewUser(Config(), action.mspClient, userName, Config().UserPassword(), mspID)
+
+		caClient, err := deffab.NewCAClient(orgID, cliconfig.Config())
+		if err != nil {
+			return nil, fmt.Errorf("error creating CA client: %s", err)
+		}
+
+		cliconfig.Config().Logger().Infof("Creating new user %s...\n", userName)
+		user, err = deffab.NewUser(cliconfig.Config(), caClient, userName, pwd, mspID)
 		if err != nil {
 			return nil, fmt.Errorf("NewUser returned error: %v", err)
 		}
-		err = action.Client().SaveUserToStateStore(user, false)
-		if err != nil {
-			return nil, fmt.Errorf("SaveUserToStateStore returned error: %v", err)
-		}
+
+		// cliconfig.Config().Logger().Infof("Saving user to state store %s...\n", userName)
+		// err = action.Client().SaveUserToStateStore(user, false)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("SaveUserToStateStore returned error: %v", err)
+		// }
 	}
 
-	Config().Logger().Debugf("Returning user %s\n", user.Name())
+	cliconfig.Config().Logger().Infof("Returning user [%s], MSPID [%s]\n", user.Name(), user.MspID())
 
 	return user, nil
 }
 
 // OrgUser returns the pre-enrolled user for the given organization
-func (action *Action) OrgUser(orgID string) apifabclient.User {
-	user, err := getUser(action.Client(), orgID)
-	if err != nil {
-		panic(fmt.Errorf("Error getting user for org %s: %v", orgID, err))
+func (action *Action) OrgUser(orgID, userName string) (apifabclient.User, error) {
+	if userName == "" {
+		return nil, fmt.Errorf("no user name specified")
 	}
-	return user
+
+	user, err := action.sdk.NewPreEnrolledUser(orgID, userName)
+	if err == nil {
+		return user, nil
+	}
+	cliconfig.Config().Logger().Debugf("Error getting pre-enrolled user for org %s: %v. Trying enrolled user...", orgID, err)
+
+	// FIXME: Password should be passed in?
+	return action.newUser(orgID, userName, cliconfig.Config().UserPassword())
 }
 
 // OrgAdminUser returns the pre-enrolled administrative user for the given organization
-func (action *Action) OrgAdminUser(orgID string) apifabclient.User {
-	admin, err := getAdmin(action.Client(), orgID)
-	if err != nil {
-		panic(fmt.Errorf("Error getting admin user for org %s: %v", orgID, err))
+func (action *Action) OrgAdminUser(orgID string) (apifabclient.User, error) {
+	userName := cliconfig.Config().UserName()
+	if userName == "" {
+		userName = adminUser
 	}
-	return admin
+	return action.OrgUser(orgID, userName)
 }
 
-// OrgOrdererAdminUser returns the pre-enrolled orderer admin user for the given organization
-func (action *Action) OrgOrdererAdminUser(orgID string) apifabclient.User {
-	ordererAdmin, err := getOrdererAdmin(action.Client(), orgID)
-	if err != nil {
-		panic(fmt.Errorf("Error getting orderer admin user for org %s: %v", orgID, err))
+// OrdererAdminUser returns the pre-enrolled administrative user for the orderer organization
+func (action *Action) OrdererAdminUser() (apifabclient.User, error) {
+	userName := cliconfig.Config().UserName()
+	if userName == "" {
+		userName = adminUser
 	}
-	return ordererAdmin
+	return action.OrgUser(ordererOrgID, userName)
 }
 
 // PeerFromURL returns the peer for the given URL
@@ -319,16 +459,20 @@ func (action *Action) PeerFromURL(url string) apifabclient.Peer {
 
 // Orderers returns all Orderers from the set of configured Orderers
 func (action *Action) Orderers() ([]apifabclient.Orderer, error) {
-	ordererConfigs, err := Config().OrderersConfig()
+	ordererConfigs, err := cliconfig.Config().OrderersConfig()
 	if err != nil {
 		return nil, fmt.Errorf("Could not orderer configurations: %s", err)
 	}
 
 	orderers := make([]apifabclient.Orderer, len(ordererConfigs))
 	for i, ordererConfig := range ordererConfigs {
+		serverHostOverride := ""
+		if str, ok := ordererConfig.GRPCOptions["ssl-target-name-override"].(string); ok {
+			serverHostOverride = str
+		}
 		orderer, err := orderer.NewOrderer(
-			AsURL(ordererConfig.Host, ordererConfig.Port),
-			ordererConfig.TLS.Certificate, ordererConfig.TLS.ServerHostOverride, Config())
+			ordererConfig.URL,
+			ordererConfig.TLSCACerts.Path, serverHostOverride, cliconfig.Config())
 		if err != nil {
 			return nil, fmt.Errorf("NewOrderer return error: %v", err)
 		}
@@ -340,14 +484,18 @@ func (action *Action) Orderers() ([]apifabclient.Orderer, error) {
 
 // RandomOrderer chooses a random Orderer from the set of configured Orderers
 func (action *Action) RandomOrderer() (apifabclient.Orderer, error) {
-	ordererConfig, err := Config().RandomOrdererConfig()
+	ordererConfig, err := cliconfig.Config().RandomOrdererConfig()
 	if err != nil {
 		return nil, fmt.Errorf("Could not get config for orderer: %s", err)
 	}
 
+	serverHostOverride := ""
+	if str, ok := ordererConfig.GRPCOptions["ssl-target-name-override"].(string); ok {
+		serverHostOverride = str
+	}
 	orderer, err := orderer.NewOrderer(
-		AsURL(ordererConfig.Host, ordererConfig.Port),
-		ordererConfig.TLS.Certificate, ordererConfig.TLS.ServerHostOverride, Config())
+		ordererConfig.URL,
+		ordererConfig.TLSCACerts.Path, serverHostOverride, cliconfig.Config())
 	if err != nil {
 		return nil, fmt.Errorf("NewOrderer return error: %v", err)
 	}
@@ -392,7 +540,12 @@ func getPeers(allPeers []apifabclient.Peer, peerURLs string) ([]apifabclient.Pee
 }
 
 func (action *Action) getEventHub() (apifabclient.EventHub, error) {
-	eventHub, err := events.NewEventHub(action.Client())
+	fabClient, err := action.Client()
+	if err != nil {
+		return nil, fmt.Errorf("error getting fabric client: %s", err)
+	}
+
+	eventHub, err := events.NewEventHub(fabClient)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating new event hub: %v", err)
 	}
@@ -402,15 +555,20 @@ func (action *Action) getEventHub() (apifabclient.EventHub, error) {
 		return nil, err
 	}
 
-	Config().Logger().Infof("Connecting to event hub at %s:%d ...\n", peerConfig.EventHost, peerConfig.EventPort)
+	cliconfig.Config().Logger().Infof("Connecting to event hub at %s ...\n", peerConfig.URL)
 
-	eventHub.SetPeerAddr(fmt.Sprintf("%s:%d", peerConfig.EventHost, peerConfig.EventPort), peerConfig.TLS.Certificate, peerConfig.TLS.ServerHostOverride)
+	serverHostOverride := ""
+	if str, ok := peerConfig.GRPCOptions["ssl-target-name-override"].(string); ok {
+		serverHostOverride = str
+	}
+
+	eventHub.SetPeerAddr(peerConfig.EventURL, peerConfig.TLSCACerts.Path, serverHostOverride)
 
 	return eventHub, nil
 }
 
 func (action *Action) peerConfig() (*apiconfig.PeerConfig, error) {
-	peersConfig, err := Config().PeersConfig(action.OrgID())
+	peersConfig, err := cliconfig.Config().PeersConfig(action.OrgID())
 	if err != nil {
 		return nil, fmt.Errorf("Error reading peers config for %s: %v", action.OrgID(), err)
 	}
@@ -418,7 +576,7 @@ func (action *Action) peerConfig() (*apiconfig.PeerConfig, error) {
 	peer := action.Peer()
 
 	for _, p := range peersConfig {
-		if peer.URL() == "" || AsURL(p.Host, p.Port) == peer.URL() {
+		if peer.URL() == "" || p.URL == peer.URL() {
 			return &p, nil
 		}
 	}
@@ -427,16 +585,16 @@ func (action *Action) peerConfig() (*apiconfig.PeerConfig, error) {
 }
 
 func (action *Action) newEventHub() (apifabclient.EventHub, error) {
-	Config().Logger().Debugf("initEventHub - Initializing %s...\n")
+	cliconfig.Config().Logger().Debugf("initEventHub - Initializing...\n")
 
 	eventHub, err := action.getEventHub()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get event hub: %s", err)
 	}
 
-	// Set the user to the org admin since the 'register' message must be signed by a user in the peer's MSP
-	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
-	defer context.Restore()
+	// // Set the user to the org admin since the 'register' message must be signed by a user in the peer's MSP
+	// context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
+	// defer context.Restore()
 
 	if err := eventHub.Connect(); err != nil {
 		return nil, fmt.Errorf("unable to connect to event hub: %s", err)
@@ -445,33 +603,21 @@ func (action *Action) newEventHub() (apifabclient.EventHub, error) {
 	return eventHub, nil
 }
 
-func (action *Action) newChannelClient() (apifabclient.Channel, error) {
-	channelClient, err := action.Client().NewChannel(Config().ChannelID())
+func (action *Action) newSession(orgID string, user apifabclient.User) (context.Session, error) {
+	cliconfig.Config().Logger().Debugf("... got user [%s]. Creating context for org [%s]...\n", user.Name(), orgID)
+	context, err := action.sdk.NewContext(orgID)
 	if err != nil {
-		return nil, fmt.Errorf("error creating channel client: %v", err)
+		return nil, fmt.Errorf("Error getting a context for org: %s", err)
 	}
 
-	orderers, err := action.Orderers()
+	cliconfig.Config().Logger().Debugf("... created context for org [%s]. Creating session for org [%s], user [%s]...\n", orgID, orgID, user.Name())
+	session, err := action.sdk.NewSession(context, user)
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving orderers: %v", err)
+		return nil, fmt.Errorf("NewSession returned error: %v", err)
 	}
+	cliconfig.Config().Logger().Debugf("... successfully created session for org [%s], user [%s].\n", orgID, user.Name())
 
-	for _, orderer := range orderers {
-		channelClient.AddOrderer(orderer)
-	}
-
-	for _, peer := range action.Peers() {
-		channelClient.AddPeer(peer)
-	}
-
-	context := action.SetUserContext(action.OrgAdminUser(Config().OrgID()))
-	defer context.Restore()
-
-	if err := channelClient.Initialize(nil); err != nil {
-		return nil, fmt.Errorf("Error initializing channel: %v", err)
-	}
-
-	return channelClient, nil
+	return session, nil
 }
 
 func containsString(sarr []string, s string) bool {
