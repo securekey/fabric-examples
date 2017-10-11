@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package query
 
 import (
-	"fmt"
-
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -21,7 +21,7 @@ var queryInfoCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		action, err := newQueryInfoAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing queryInfoAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing queryInfoAction: %v", err)
 			return
 		}
 
@@ -29,16 +29,16 @@ var queryInfoCmd = &cobra.Command{
 
 		err = action.run()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running queryInfoAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running queryInfoAction: %v", err)
 		}
 	},
 }
 
 func getQueryInfoCmd() *cobra.Command {
 	flags := queryInfoCmd.Flags()
-	common.Config().InitTxID(flags)
-	common.Config().InitChannelID(flags)
-	common.Config().InitPeerURL(flags)
+	cliconfig.InitTxID(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitPeerURL(flags)
 	return queryInfoCmd
 }
 
@@ -53,13 +53,10 @@ func newQueryInfoAction(flags *pflag.FlagSet) (*queryInfoAction, error) {
 }
 
 func (action *queryInfoAction) run() error {
-	channelClient, err := action.ChannelClient()
+	channelClient, err := action.AdminChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error getting channel client: %v", err)
+		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
-
-	context := action.SetUserContext(action.OrgAdminUser(action.OrgID()))
-	defer context.Restore()
 
 	info, err := channelClient.QueryInfo()
 	if err != nil {

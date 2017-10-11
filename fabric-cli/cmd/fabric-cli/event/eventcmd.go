@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package event
 
 import (
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +22,7 @@ var eventCmd = &cobra.Command{
 
 // Cmd returns the events command
 func Cmd() *cobra.Command {
-	common.Config().InitChannelID(eventCmd.Flags())
+	cliconfig.InitChannelID(eventCmd.Flags())
 
 	eventCmd.AddCommand(getListenCCCmd())
 	eventCmd.AddCommand(getListenTXCmd())
