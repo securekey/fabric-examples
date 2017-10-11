@@ -11,8 +11,10 @@ import (
 	"io/ioutil"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	fabricCommon "github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -24,7 +26,7 @@ var channelCreateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		action, err := newChannelCreateAction(cmd.Flags())
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while initializing channelCreateAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while initializing channelCreateAction: %v", err)
 			return
 		}
 
@@ -32,16 +34,16 @@ var channelCreateCmd = &cobra.Command{
 
 		err = action.invoke()
 		if err != nil {
-			common.Config().Logger().Criticalf("Error while running channelCreateAction: %v", err)
+			cliconfig.Config().Logger().Errorf("Error while running channelCreateAction: %v", err)
 		}
 	},
 }
 
 func getChannelCreateCmd() *cobra.Command {
 	flags := channelCreateCmd.Flags()
-	common.Config().InitChannelID(flags)
-	common.Config().InitOrdererURL(flags)
-	common.Config().InitTxFile(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitOrdererURL(flags)
+	cliconfig.InitTxFile(flags)
 	return channelCreateCmd
 }
 
@@ -56,28 +58,34 @@ func newChannelCreateAction(flags *pflag.FlagSet) (*channelCreateAction, error) 
 }
 
 func (action *channelCreateAction) invoke() error {
-	configTx, err := ioutil.ReadFile(common.Config().TxFile())
+	configTx, err := ioutil.ReadFile(cliconfig.Config().TxFile())
 	if err != nil {
-		return fmt.Errorf("An error occurred while reading TX file %s: %v", common.Config().TxFile(), err)
+		return errors.Errorf("An error occurred while reading TX file %s: %v", cliconfig.Config().TxFile(), err)
 	}
 
-	config, err := action.Client().ExtractChannelConfig(configTx)
+	user, err := action.OrgAdminUser(action.OrgID())
 	if err != nil {
-		return fmt.Errorf("Error extracting channel config: %v", err)
+		return err
 	}
 
-	// Sign the config with the org admin user
-	context := action.SetUserContext(action.OrgAdminUser(common.Config().OrgID()))
-	defer context.Restore()
-
-	txID, err := action.Client().NewTxnID()
+	adminFabClient, err := action.ClientForUser(action.OrgID(), user)
 	if err != nil {
-		return fmt.Errorf("Error creating transaction ID: %v", err)
+		return errors.Errorf("error getting fabric client: %s", err)
 	}
 
-	configSignature, err := action.Client().SignChannelConfig(config)
+	config, err := adminFabClient.ExtractChannelConfig(configTx)
 	if err != nil {
-		return fmt.Errorf("Error signing configuration: %v", err)
+		return errors.Errorf("error extracting channel config: %v", err)
+	}
+
+	txID, err := adminFabClient.NewTxnID()
+	if err != nil {
+		return errors.Errorf("Error creating transaction ID: %v", err)
+	}
+
+	configSignature, err := adminFabClient.SignChannelConfig(config)
+	if err != nil {
+		return errors.Errorf("Error signing configuration: %v", err)
 	}
 
 	orderer, err := action.RandomOrderer()
@@ -86,19 +94,27 @@ func (action *channelCreateAction) invoke() error {
 	}
 
 	// Use the Orderer Admin user to create the channel
-	action.SetUserContext(action.OrgOrdererAdminUser(common.Config().OrgID()))
+	ordererAdminUser, err := action.OrdererAdminUser()
+	if err != nil {
+		return errors.Errorf("error getting orderer admin user: %s", err)
+	}
 
-	fmt.Printf("Attempting to create channel: %s\n", common.Config().ChannelID())
+	ordererAdminFabClient, err := action.ClientForUser(action.OrgID(), ordererAdminUser)
+	if err != nil {
+		return errors.Errorf("error getting fabric client: %s", err)
+	}
 
-	_, err = action.Client().CreateChannel(apifabclient.CreateChannelRequest{
-		Name:       common.Config().ChannelID(),
+	fmt.Printf("Attempting to create channel: %s\n", cliconfig.Config().ChannelID())
+
+	_, err = ordererAdminFabClient.CreateChannel(apifabclient.CreateChannelRequest{
+		Name:       cliconfig.Config().ChannelID(),
 		Orderer:    orderer,
 		Config:     config,
 		Signatures: []*fabricCommon.ConfigSignature{configSignature},
 		TxnID:      txID,
 	})
 	if err != nil {
-		return fmt.Errorf("Error from create channel: %s", err.Error())
+		return errors.Errorf("Error from create channel: %s", err.Error())
 	}
 
 	fmt.Println("Channel created!")
