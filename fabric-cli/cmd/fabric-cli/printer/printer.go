@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	fabriccmn "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/msp"
@@ -419,21 +420,21 @@ func (p *PrinterImpl) PrintData(headerType fabriccmn.HeaderType, data []byte) {
 	if headerType == fabriccmn.HeaderType_CONFIG {
 		envelope := &fabriccmn.ConfigEnvelope{}
 		if err := proto.Unmarshal(data, envelope); err != nil {
-			panic(fmt.Errorf("Bad envelope: %v", err))
+			panic(errors.Errorf("Bad envelope: %v", err))
 		}
 		p.Print("Config Envelope:")
 		p.PrintConfigEnvelope(envelope)
 	} else if headerType == fabriccmn.HeaderType_CONFIG_UPDATE {
 		envelope := &fabriccmn.ConfigUpdateEnvelope{}
 		if err := proto.Unmarshal(data, envelope); err != nil {
-			panic(fmt.Errorf("Bad envelope: %v", err))
+			panic(errors.Errorf("Bad envelope: %v", err))
 		}
 		p.Print("Config Update Envelope:")
 		p.PrintConfigUpdateEnvelope(envelope)
 	} else if headerType == fabriccmn.HeaderType_ENDORSER_TRANSACTION {
 		tx, err := fabricUtils.GetTransaction(data)
 		if err != nil {
-			panic(fmt.Errorf("Bad envelope: %v", err))
+			panic(errors.Errorf("Bad envelope: %v", err))
 		}
 		p.Print("Transaction:")
 		p.PrintTransaction(tx)
@@ -1036,7 +1037,7 @@ func (p *PrinterImpl) PrintSignaturesMetadata(metadata *fabriccmn.Metadata) {
 	for i, metadataSignature := range metadata.Signatures {
 		shdr, err := fabricUtils.GetSignatureHeader(metadataSignature.SignatureHeader)
 		if err != nil {
-			panic(fmt.Errorf("Failed unmarshalling meta data signature header. Error: %v", err))
+			panic(errors.Errorf("Failed unmarshalling meta data signature header. Error: %v", err))
 		}
 		p.Item("Metadata Signature", i)
 		p.PrintSignatureHeader(shdr)
@@ -1049,7 +1050,7 @@ func (p *PrinterImpl) PrintLastConfigMetadata(metadata *fabriccmn.Metadata) {
 	lastConfig := &fabriccmn.LastConfig{}
 	err := proto.Unmarshal(metadata.Value, lastConfig)
 	if err != nil {
-		panic(fmt.Errorf("Failed unmarshalling meta data last config. Error: %v", err))
+		panic(errors.Errorf("Failed unmarshalling meta data last config. Error: %v", err))
 	}
 
 	p.Field("Last Config Index", lastConfig.Index)
@@ -1137,7 +1138,7 @@ func getMetadataOrPanic(blockMetaData *fabriccmn.BlockMetadata, index fabriccmn.
 	metaData := &fabriccmn.Metadata{}
 	err := proto.Unmarshal(blockMetaData.Metadata[index], metaData)
 	if err != nil {
-		panic(fmt.Errorf("Unable to unmarshal meta data at index %d", index))
+		panic(errors.Errorf("Unable to unmarshal meta data at index %d", index))
 	}
 	return metaData
 }

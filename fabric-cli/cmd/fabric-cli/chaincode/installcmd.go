@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -49,11 +50,11 @@ var installCmd = &cobra.Command{
 
 func getInstallCmd() *cobra.Command {
 	flags := installCmd.Flags()
-	cliconfig.Config().InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. grpcs://localhost:7051")
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitChaincodeID(flags)
-	cliconfig.Config().InitChaincodePath(flags)
-	cliconfig.Config().InitChaincodeVersion(flags)
+	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. grpcs://localhost:7051")
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitChaincodeID(flags)
+	cliconfig.InitChaincodePath(flags)
+	cliconfig.InitChaincodeVersion(flags)
 	return installCmd
 }
 
@@ -83,7 +84,7 @@ func (action *installAction) invoke() error {
 }
 
 func (action *installAction) installChaincode(orgID string, targets []apifabclient.Peer) error {
-	var errors []error
+	var errs []error
 
 	user, err := action.OrgAdminUser(orgID)
 	if err != nil {
@@ -92,12 +93,12 @@ func (action *installAction) installChaincode(orgID string, targets []apifabclie
 
 	client, err := action.ClientForUser(orgID, user)
 	if err != nil {
-		return fmt.Errorf("error creating fabric client: %s", err)
+		return errors.Errorf("error creating fabric client: %s", err)
 	}
 
 	transactionProposalResponse, _, err := client.InstallChaincode(cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodePath(), cliconfig.Config().ChaincodeVersion(), nil, targets)
 	if err != nil {
-		return fmt.Errorf("InstallChaincode returned error: %v", err)
+		return errors.Errorf("InstallChaincode returned error: %v", err)
 	}
 
 	ccIDVersion := cliconfig.Config().ChaincodeID() + "." + cliconfig.Config().ChaincodeVersion()
@@ -108,16 +109,16 @@ func (action *installAction) installChaincode(orgID string, targets []apifabclie
 				// Ignore
 				fmt.Printf("Chaincode %s already installed on peer: %s.\n", ccIDVersion, v.Endorser)
 			} else {
-				errors = append(errors, fmt.Errorf("installCC returned error from peer %s: %v", v.Endorser, v.Err))
+				errs = append(errs, errors.Errorf("installCC returned error from peer %s: %v", v.Endorser, v.Err))
 			}
 		} else {
 			fmt.Printf("...successfuly installed chaincode %s on peer %s.\n", ccIDVersion, v.Endorser)
 		}
 	}
 
-	if len(errors) > 0 {
-		cliconfig.Config().Logger().Warningf("Errors returned from InstallCC: %v\n", errors)
-		return errors[0]
+	if len(errs) > 0 {
+		cliconfig.Config().Logger().Warnf("Errors returned from InstallCC: %v\n", errs)
+		return errs[0]
 	}
 
 	return nil

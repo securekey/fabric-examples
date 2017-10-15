@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -48,13 +49,13 @@ var invokeCmd = &cobra.Command{
 
 func getInvokeCmd() *cobra.Command {
 	flags := invokeCmd.Flags()
-	cliconfig.Config().InitPeerURL(flags)
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitChaincodeID(flags)
-	cliconfig.Config().InitArgs(flags)
-	cliconfig.Config().InitIterations(flags)
-	cliconfig.Config().InitSleepTime(flags)
-	cliconfig.Config().InitTimeout(flags)
+	cliconfig.InitPeerURL(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitChaincodeID(flags)
+	cliconfig.InitArgs(flags)
+	cliconfig.InitIterations(flags)
+	cliconfig.InitSleepTime(flags)
+	cliconfig.InitTimeout(flags)
 	return invokeCmd
 }
 
@@ -79,14 +80,14 @@ func newInvokeAction(flags *pflag.FlagSet) (*invokeAction, error) {
 func (action *invokeAction) invoke() error {
 	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error getting channel client: %v", err)
+		return errors.Errorf("Error getting channel client: %v", err)
 	}
 
 	argBytes := []byte(cliconfig.Config().Args())
 	args := &common.ArgStruct{}
 	err = json.Unmarshal(argBytes, args)
 	if err != nil {
-		return fmt.Errorf("Error unmarshaling JSON arg string: %v", err)
+		return errors.Errorf("Error unmarshaling JSON arg string: %v", err)
 	}
 
 	if cliconfig.Config().Iterations() > 1 {
@@ -97,7 +98,7 @@ func (action *invokeAction) invoke() error {
 			select {
 			case <-action.done:
 				completed = true
-			case <-time.After(cliconfig.Config().Timeout() * time.Millisecond):
+			case <-time.After(cliconfig.Config().Timeout()):
 				fmt.Printf("... completed %d out of %d\n", action.numInvoked, cliconfig.Config().Iterations())
 			}
 		}
@@ -152,7 +153,7 @@ func (action *invokeAction) doInvoke(channel apitxn.ChannelClient, fctn string, 
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("SendTransactionProposal return error: %v", err)
+		return errors.Errorf("SendTransactionProposal return error: %v", err)
 	}
 
 	cliconfig.Config().Logger().Debugf("invoke - Committing transaction - TxID: %s ...\n", txID)
@@ -162,9 +163,9 @@ func (action *invokeAction) doInvoke(channel apitxn.ChannelClient, fctn string, 
 		if s.TxValidationCode == pb.TxValidationCode_VALID {
 			return nil
 		}
-		return fmt.Errorf("invoke Error received from eventhub for txid(%s). Code: %s, Details: %s", txID, s.TxValidationCode, s.Error)
-	case <-time.After(cliconfig.Config().Timeout() * time.Millisecond):
-		return fmt.Errorf("timed out waiting to receive block event for txid(%s)", txID)
+		return errors.Errorf("invoke Error received from eventhub for txid(%s). Code: %s, Details: %s", txID, s.TxValidationCode, s.Error)
+	case <-time.After(cliconfig.Config().Timeout()):
+		return errors.Errorf("timed out waiting to receive block event for txid(%s)", txID)
 	}
 }
 

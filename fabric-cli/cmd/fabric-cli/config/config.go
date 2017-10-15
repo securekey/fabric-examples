@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
 	"github.com/hyperledger/fabric-sdk-go/pkg/config"
-	logging "github.com/op/go-logging"
+	"github.com/hyperledger/fabric-sdk-go/pkg/logging"
 	"github.com/spf13/pflag"
 )
 
@@ -39,8 +39,8 @@ const (
 	defaultChaincodeVersion     = "v0"
 
 	loggingLevelFlag        = "logging-level"
-	loggingLevelDescription = "Logging level - CRITICAL, ERROR, WARNING, INFO, DEBUG"
-	defaultLoggingLevel     = "CRITICAL"
+	loggingLevelDescription = "Logging level - ERROR, WARN, INFO, DEBUG"
+	defaultLoggingLevel     = "ERROR"
 
 	orgIDsFlag        = "orgid"
 	orgIDsDescription = "A comma-separated list of organization IDs"
@@ -176,19 +176,20 @@ type CLIConfig struct {
 
 // InitConfig initializes the configuration
 func InitConfig(flags *pflag.FlagSet) error {
-	var configFile string
-	defaultValue, description := getDefaultValueAndDescription(defaultConfigFile, configFileDescription, defaultConfigFile)
-	flags.StringVar(&configFile, configFileFlag, defaultValue, description)
+	// var configFile string
+	// defaultValue, description := getDefaultValueAndDescription(defaultConfigFile, configFileDescription, defaultConfigFile)
+	// flags.StringVar(&configFile, configFileFlag, defaultValue, description)
 
-	cnfg, err := config.InitConfig(configFile)
+	instance = &CLIConfig{
+		logger: logging.NewLogger(loggerName),
+	}
+
+	cnfg, err := config.InitConfig(opts.configFile)
 	if err != nil {
 		return err
 	}
 
-	instance = &CLIConfig{
-		Config: cnfg,
-		logger: logging.MustGetLogger(loggerName),
-	}
+	instance.Config = cnfg
 
 	return nil
 }
@@ -209,9 +210,15 @@ func (c *CLIConfig) LoggingLevel() string {
 }
 
 // InitLoggingLevel initializes the logging level from the provided arguments
-func (c *CLIConfig) InitLoggingLevel(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitLoggingLevel(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultLoggingLevel, loggingLevelDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.loggingLevel, loggingLevelFlag, defaultValue, description)
+}
+
+// InitConfigFile initializes the config file path from the provided arguments
+func InitConfigFile(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultConfigFile, configFileDescription, defaultValueAndDescription...)
+	flags.StringVar(&opts.configFile, configFileFlag, defaultValue, description)
 }
 
 // OrgID specifies the ID of the current organization. If multiple org IDs are specified then the first one is returned.
@@ -230,7 +237,7 @@ func (c *CLIConfig) OrgIDs() []string {
 }
 
 // InitOrgIDs initializes the org IDs from the provided arguments
-func (c *CLIConfig) InitOrgIDs(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitOrgIDs(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultOrgIDs, orgIDsDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.orgIDsStr, orgIDsFlag, defaultValue, description)
 }
@@ -241,7 +248,7 @@ func (c *CLIConfig) ChannelID() string {
 }
 
 // InitChannelID initializes the channel ID from the provided arguments
-func (c *CLIConfig) InitChannelID(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitChannelID(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultChannelID, channelIDDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.channelID, channelIDFlag, defaultValue, description)
 }
@@ -252,7 +259,7 @@ func (c *CLIConfig) UserName() string {
 }
 
 // InitUserName initializes the user name from the provided arguments
-func (c *CLIConfig) InitUserName(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitUserName(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultUser, userDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.user, userFlag, defaultValue, description)
 }
@@ -263,7 +270,7 @@ func (c *CLIConfig) UserPassword() string {
 }
 
 // InitUserPassword initializes the user password from the provided arguments
-func (c *CLIConfig) InitUserPassword(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitUserPassword(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultPassword, passwordDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.password, passwordFlag, defaultValue, description)
 }
@@ -274,7 +281,7 @@ func (c *CLIConfig) ChaincodeID() string {
 }
 
 // InitChaincodeID initializes the chaincode ID from the provided arguments
-func (c *CLIConfig) InitChaincodeID(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitChaincodeID(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultChaincodeID, chaincodeIDDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.chaincodeID, chaincodeIDFlag, defaultValue, description)
 }
@@ -285,7 +292,7 @@ func (c *CLIConfig) ChaincodeEvent() string {
 }
 
 // InitChaincodeEvent initializes the chaincode event name from the provided arguments
-func (c *CLIConfig) InitChaincodeEvent(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitChaincodeEvent(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultChaincodeEvent, chaincodeEventDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.chaincodeEvent, chaincodeEventFlag, defaultValue, description)
 }
@@ -296,7 +303,7 @@ func (c *CLIConfig) ChaincodePath() string {
 }
 
 // InitChaincodePath initializes the chaincode install source path from the provided arguments
-func (c *CLIConfig) InitChaincodePath(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitChaincodePath(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultChaincodePath, chaincodePathDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.chaincodePath, chaincodePathFlag, defaultValue, description)
 }
@@ -307,7 +314,7 @@ func (c *CLIConfig) ChaincodeVersion() string {
 }
 
 // InitChaincodeVersion initializes the chaincode version from the provided arguments
-func (c *CLIConfig) InitChaincodeVersion(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitChaincodeVersion(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultChaincodeVersion, chaincodeVersionDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.chaincodeVersion, chaincodeVersionFlag, defaultValue, description)
 }
@@ -318,7 +325,7 @@ func (c *CLIConfig) PeerURL() string {
 }
 
 // InitPeerURL initializes the peer URL from the provided arguments
-func (c *CLIConfig) InitPeerURL(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitPeerURL(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultPeerURL, peerURLDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.peerURL, peerURLFlag, defaultValue, description)
 }
@@ -329,7 +336,7 @@ func (c *CLIConfig) OrdererURL() string {
 }
 
 // InitOrdererURL initializes the orderer URL from the provided arguments
-func (c *CLIConfig) InitOrdererURL(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitOrdererURL(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultOrdererURL, ordererURLDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.ordererURL, ordererFlag, defaultValue, description)
 }
@@ -340,7 +347,7 @@ func (c *CLIConfig) Iterations() int {
 }
 
 // InitIterations initializes the number of query/invoke iterations from the provided arguments
-func (c *CLIConfig) InitIterations(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitIterations(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultIterations, iterationsDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
@@ -356,7 +363,7 @@ func (c *CLIConfig) SleepTime() int64 {
 }
 
 // InitSleepTime initializes the sleep time from the provided arguments
-func (c *CLIConfig) InitSleepTime(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitSleepTime(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultSleepTime, sleepTimeDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
@@ -372,7 +379,7 @@ func (c *CLIConfig) BlockNum() int {
 }
 
 // InitBlockNum initializes the bluck number from the provided arguments
-func (c *CLIConfig) InitBlockNum(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitBlockNum(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultBlockNum, blockNumDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
@@ -388,7 +395,7 @@ func (c *CLIConfig) BlockHash() string {
 }
 
 // InitBlockHash initializes the block hash from the provided arguments
-func (c *CLIConfig) InitBlockHash(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitBlockHash(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultBlockHash, blockHashDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.blockHash, blockHashFlag, defaultValue, description)
 }
@@ -399,7 +406,7 @@ func (c *CLIConfig) Traverse() int {
 }
 
 // InitTraverse initializes the 'traverse' flag from the provided arguments
-func (c *CLIConfig) InitTraverse(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitTraverse(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultTraverse, traverseDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
@@ -415,7 +422,7 @@ func (c *CLIConfig) PrintFormat() string {
 }
 
 // InitPrintFormat initializes the print format from the provided arguments
-func (c *CLIConfig) InitPrintFormat(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitPrintFormat(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription("display", printFormatDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.printFormat, printFormatFlag, defaultValue, description)
 }
@@ -426,7 +433,7 @@ func (c *CLIConfig) Writer() string {
 }
 
 // InitWriter initializes the print writer from the provided arguments
-func (c *CLIConfig) InitWriter(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitWriter(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription("stdout", writerDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.writer, writerFlag, defaultValue, description)
 }
@@ -437,7 +444,7 @@ func (c *CLIConfig) OrdererTLSCertificate() string {
 }
 
 // InitOrdererTLSCertificate initializes the orderer TLS certificate from the provided arguments
-func (c *CLIConfig) InitOrdererTLSCertificate(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitOrdererTLSCertificate(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultCertificate, certificateDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.certificate, certificateFileFlag, defaultValue, description)
 }
@@ -448,7 +455,7 @@ func (c *CLIConfig) Args() string {
 }
 
 // InitArgs initializes the invoke/query args from the provided arguments
-func (c *CLIConfig) InitArgs(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitArgs(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(getEmptyArgs(), argsDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.args, argsFlag, defaultValue, description)
 }
@@ -459,7 +466,7 @@ func (c *CLIConfig) TxFile() string {
 }
 
 // InitTxFile initializes the path of the .tx file used to create/update a channel from the provided arguments
-func (c *CLIConfig) InitTxFile(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitTxFile(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultTxFile, txFileDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.txFile, txFileFlag, defaultValue, description)
 }
@@ -470,7 +477,7 @@ func (c *CLIConfig) TxID() string {
 }
 
 // InitTxID initializes the transaction D from the provided arguments
-func (c *CLIConfig) InitTxID(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitTxID(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultTxID, txIDDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.txID, txIDFlag, defaultValue, description)
 }
@@ -481,18 +488,18 @@ func (c *CLIConfig) ChaincodePolicy() string {
 }
 
 // InitChaincodePolicy initializes the chaincode policy from the provided arguments
-func (c *CLIConfig) InitChaincodePolicy(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitChaincodePolicy(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultChaincodePolicy, chaincodePolicyDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.chaincodePolicy, chaincodePolicyFlag, defaultValue, description)
 }
 
 // Timeout returns the timeout (in milliseconds) for various operations
 func (c *CLIConfig) Timeout() time.Duration {
-	return time.Duration(opts.timeout)
+	return time.Duration(opts.timeout) * time.Millisecond
 }
 
 // InitTimeout initializes the timeout from the provided arguments
-func (c *CLIConfig) InitTimeout(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+func InitTimeout(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultTimeout, timeoutDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
@@ -554,12 +561,17 @@ func (c *CLIConfig) RandomOrdererConfig() (*apiconfig.OrdererConfig, error) {
 	return &orderers[0], nil
 }
 
+// IsLoggingEnabledFor indicates whether the logger is enabled for the given logging level
+func (c *CLIConfig) IsLoggingEnabledFor(level logging.Level) bool {
+	return logging.IsEnabledFor(level, loggerName)
+}
+
 // Utility functions...
 
 func getEmptyArgs() string {
 	// argBytes, err := json.Marshal(&common.ArgStruct{})
 	// if err != nil {
-	// 	panic(fmt.Errorf("error marshaling empty args struct: %v", err))
+	// 	panic(errors.Errorf("error marshaling empty args struct: %v", err))
 	// }
 	// return string(argBytes)
 	return "{}"

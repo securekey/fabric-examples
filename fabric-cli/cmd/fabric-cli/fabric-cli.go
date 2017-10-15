@@ -29,13 +29,14 @@ func newFabricCLICmd() *cobra.Command {
 	}
 
 	flags := mainCmd.PersistentFlags()
-	cliconfig.Config().InitLoggingLevel(flags)
-	cliconfig.Config().InitUserName(flags)
-	cliconfig.Config().InitUserPassword(flags)
-	cliconfig.Config().InitOrdererTLSCertificate(flags)
-	cliconfig.Config().InitPrintFormat(flags)
-	cliconfig.Config().InitWriter(flags)
-	cliconfig.Config().InitOrgIDs(flags)
+	cliconfig.InitConfigFile(flags)
+	cliconfig.InitLoggingLevel(flags)
+	cliconfig.InitUserName(flags)
+	cliconfig.InitUserPassword(flags)
+	cliconfig.InitOrdererTLSCertificate(flags)
+	cliconfig.InitPrintFormat(flags)
+	cliconfig.InitWriter(flags)
+	cliconfig.InitOrgIDs(flags)
 
 	mainCmd.AddCommand(chaincode.Cmd())
 	mainCmd.AddCommand(query.Cmd())

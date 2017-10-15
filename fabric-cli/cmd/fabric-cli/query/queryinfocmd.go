@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package query
 
 import (
-	"fmt"
-
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -37,9 +36,9 @@ var queryInfoCmd = &cobra.Command{
 
 func getQueryInfoCmd() *cobra.Command {
 	flags := queryInfoCmd.Flags()
-	cliconfig.Config().InitTxID(flags)
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitPeerURL(flags)
+	cliconfig.InitTxID(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitPeerURL(flags)
 	return queryInfoCmd
 }
 
@@ -56,7 +55,7 @@ func newQueryInfoAction(flags *pflag.FlagSet) (*queryInfoAction, error) {
 func (action *queryInfoAction) run() error {
 	channelClient, err := action.AdminChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error getting admin channel client: %v", err)
+		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
 
 	info, err := channelClient.QueryInfo()

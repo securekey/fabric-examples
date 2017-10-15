@@ -22,7 +22,7 @@ var channelCmd = &cobra.Command{
 
 // Cmd returns the channel command
 func Cmd() *cobra.Command {
-	cliconfig.Config().InitChannelID(channelCmd.Flags())
+	cliconfig.InitChannelID(channelCmd.Flags())
 
 	channelCmd.AddCommand(getChannelCreateCmd())
 	channelCmd.AddCommand(getChannelJoinCmd())

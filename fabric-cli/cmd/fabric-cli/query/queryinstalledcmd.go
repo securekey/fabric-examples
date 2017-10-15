@@ -42,7 +42,7 @@ var queryInstalledCmd = &cobra.Command{
 }
 
 func getQueryInstalledCmd() *cobra.Command {
-	cliconfig.Config().InitPeerURL(queryInstalledCmd.Flags())
+	cliconfig.InitPeerURL(queryInstalledCmd.Flags())
 	return queryInstalledCmd
 }
 

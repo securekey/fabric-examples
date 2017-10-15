@@ -22,7 +22,7 @@ var eventCmd = &cobra.Command{
 
 // Cmd returns the events command
 func Cmd() *cobra.Command {
-	cliconfig.Config().InitChannelID(eventCmd.Flags())
+	cliconfig.InitChannelID(eventCmd.Flags())
 
 	eventCmd.AddCommand(getListenCCCmd())
 	eventCmd.AddCommand(getListenTXCmd())

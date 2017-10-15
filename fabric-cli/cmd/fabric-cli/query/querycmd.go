@@ -22,7 +22,7 @@ var queryCmd = &cobra.Command{
 
 // Cmd returns the query command
 func Cmd() *cobra.Command {
-	cliconfig.Config().InitChannelID(queryCmd.Flags())
+	cliconfig.InitChannelID(queryCmd.Flags())
 
 	queryCmd.AddCommand(getQueryBlockCmd())
 	queryCmd.AddCommand(getQueryInfoCmd())

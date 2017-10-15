@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -46,11 +47,11 @@ var queryBlockCmd = &cobra.Command{
 
 func getQueryBlockCmd() *cobra.Command {
 	flags := queryBlockCmd.Flags()
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitBlockNum(flags)
-	cliconfig.Config().InitBlockHash(flags)
-	cliconfig.Config().InitTraverse(flags)
-	cliconfig.Config().InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. grpcs://localhost:7051")
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitBlockNum(flags)
+	cliconfig.InitBlockHash(flags)
+	cliconfig.InitTraverse(flags)
+	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. grpcs://localhost:7051")
 	return queryBlockCmd
 }
 
@@ -67,7 +68,7 @@ func newQueryBlockAction(flags *pflag.FlagSet) (*queryBlockAction, error) {
 func (action *queryBlockAction) invoke() error {
 	channelClient, err := action.AdminChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error getting admin channel client: %v", err)
+		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
 
 	var block *fabricCommon.Block
@@ -90,7 +91,7 @@ func (action *queryBlockAction) invoke() error {
 			return err
 		}
 	} else {
-		return fmt.Errorf("must specify either a block number of a block hash")
+		return errors.Errorf("must specify either a block number of a block hash")
 	}
 
 	action.Printer().PrintBlock(block)

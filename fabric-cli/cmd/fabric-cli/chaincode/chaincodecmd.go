@@ -22,7 +22,7 @@ var chaincodeCmd = &cobra.Command{
 
 // Cmd returns the chaincode command
 func Cmd() *cobra.Command {
-	cliconfig.Config().InitChannelID(chaincodeCmd.Flags())
+	cliconfig.InitChannelID(chaincodeCmd.Flags())
 
 	chaincodeCmd.AddCommand(getInstallCmd())
 	chaincodeCmd.AddCommand(getInstantiateCmd())

@@ -9,6 +9,7 @@ package query
 import (
 	"fmt"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -42,7 +43,7 @@ var queryChannelsCmd = &cobra.Command{
 }
 
 func getQueryChannelsCmd() *cobra.Command {
-	cliconfig.Config().InitPeerURL(queryChannelsCmd.Flags())
+	cliconfig.InitPeerURL(queryChannelsCmd.Flags())
 	return queryChannelsCmd
 }
 
@@ -64,7 +65,7 @@ func (action *queryChannelsAction) run() error {
 
 	client, err := action.ClientForUser(action.OrgID(), user)
 	if err != nil {
-		return fmt.Errorf("error getting fabric client: %s", err)
+		return errors.Errorf("error getting fabric client: %s", err)
 	}
 
 	response, err := client.QueryChannels(action.Peer())

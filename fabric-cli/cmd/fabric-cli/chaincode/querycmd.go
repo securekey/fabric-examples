@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -46,12 +47,13 @@ var queryCmd = &cobra.Command{
 
 func getQueryCmd() *cobra.Command {
 	flags := queryCmd.Flags()
-	cliconfig.Config().InitPeerURL(flags)
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitChaincodeID(flags)
-	cliconfig.Config().InitArgs(flags)
-	cliconfig.Config().InitIterations(flags)
-	cliconfig.Config().InitSleepTime(flags)
+	cliconfig.InitPeerURL(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitChaincodeID(flags)
+	cliconfig.InitArgs(flags)
+	cliconfig.InitIterations(flags)
+	cliconfig.InitSleepTime(flags)
+	cliconfig.InitTimeout(flags)
 	return queryCmd
 }
 
@@ -70,14 +72,14 @@ func newQueryAction(flags *pflag.FlagSet) (*queryAction, error) {
 func (action *queryAction) query() error {
 	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error getting channel client: %v", err)
+		return errors.Errorf("Error getting channel client: %v", err)
 	}
 
 	argBytes := []byte(cliconfig.Config().Args())
 	args := &common.ArgStruct{}
 	err = json.Unmarshal(argBytes, args)
 	if err != nil {
-		return fmt.Errorf("Error unmarshaling JSON arg string: %v", err)
+		return errors.Errorf("Error unmarshaling JSON arg string: %v", err)
 	}
 
 	if cliconfig.Config().Iterations() > 1 {

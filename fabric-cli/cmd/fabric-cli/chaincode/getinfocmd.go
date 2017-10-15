@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/core/common/ccprovider"
@@ -49,9 +50,9 @@ var getInfoCmd = &cobra.Command{
 
 func getGetInfoCmd() *cobra.Command {
 	flags := getInfoCmd.Flags()
-	cliconfig.Config().InitPeerURL(flags)
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitChaincodeID(flags)
+	cliconfig.InitPeerURL(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitChaincodeID(flags)
 	return getInfoCmd
 }
 
@@ -63,7 +64,7 @@ func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
 	action := &getInfoAction{}
 	err := action.Initialize(flags)
 	if len(action.Peers()) == 0 {
-		return nil, fmt.Errorf("a peer must be specified")
+		return nil, errors.New("a peer must be specified")
 	}
 	return action, err
 }
@@ -71,7 +72,7 @@ func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
 func (action *getInfoAction) invoke() error {
 	channelClient, err := action.ChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error retrieving channel client: %v", err)
+		return errors.Errorf("error retrieving channel client: %v", err)
 	}
 
 	var args [][]byte
@@ -93,13 +94,13 @@ func (action *getInfoAction) invoke() error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("Error querying for chaincode info: %v", err)
+		return errors.Errorf("error querying for chaincode info: %v", err)
 	}
 
 	ccData := &ccprovider.ChaincodeData{}
 	err = proto.Unmarshal(response, ccData)
 	if err != nil {
-		return fmt.Errorf("Error unmarshalling chaincode data: %v", err)
+		return errors.Errorf("error unmarshalling chaincode data: %v", err)
 	}
 
 	action.Printer().PrintChaincodeData(ccData)

@@ -49,9 +49,9 @@ var listenccCmd = &cobra.Command{
 
 func getListenCCCmd() *cobra.Command {
 	flags := listenccCmd.Flags()
-	cliconfig.Config().InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
-	cliconfig.Config().InitChaincodeID(flags)
-	cliconfig.Config().InitChaincodeEvent(flags)
+	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
+	cliconfig.InitChaincodeID(flags)
+	cliconfig.InitChaincodeEvent(flags)
 	return listenccCmd
 }
 

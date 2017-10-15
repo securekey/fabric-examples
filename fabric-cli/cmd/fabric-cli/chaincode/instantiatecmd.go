@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	admin "github.com/hyperledger/fabric-sdk-go/pkg/fabric-txn/admin"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
@@ -53,13 +54,13 @@ var instantiateCmd = &cobra.Command{
 
 func getInstantiateCmd() *cobra.Command {
 	flags := instantiateCmd.Flags()
-	cliconfig.Config().InitPeerURL(flags)
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitChaincodeID(flags)
-	cliconfig.Config().InitChaincodePath(flags)
-	cliconfig.Config().InitChaincodeVersion(flags)
-	cliconfig.Config().InitArgs(flags)
-	cliconfig.Config().InitChaincodePolicy(flags)
+	cliconfig.InitPeerURL(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitChaincodeID(flags)
+	cliconfig.InitChaincodePath(flags)
+	cliconfig.InitChaincodeVersion(flags)
+	cliconfig.InitArgs(flags)
+	cliconfig.InitChaincodePolicy(flags)
 	return instantiateCmd
 }
 
@@ -71,7 +72,7 @@ func newInstantiateAction(flags *pflag.FlagSet) (*instantiateAction, error) {
 	action := &instantiateAction{}
 	err := action.Initialize(flags)
 	if len(action.Peers()) == 0 {
-		return nil, fmt.Errorf("a peer must be specified")
+		return nil, errors.Errorf("a peer must be specified")
 	}
 	return action, err
 }
@@ -81,12 +82,12 @@ func (action *instantiateAction) invoke() error {
 	args := &common.ArgStruct{}
 
 	if err := json.Unmarshal(argBytes, args); err != nil {
-		return fmt.Errorf("Error unmarshalling JSON arg string: %v", err)
+		return errors.Errorf("Error unmarshalling JSON arg string: %v", err)
 	}
 
 	channelClient, err := action.AdminChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error getting admin channel client: %v", err)
+		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
 
 	cliconfig.Config().Logger().Infof("Sending instantiate %s ...\n", cliconfig.Config().ChaincodeID())
@@ -111,7 +112,7 @@ func (action *instantiateAction) invoke() error {
 			fmt.Printf("...chaincode %s already instantiated.\n", cliconfig.Config().ChaincodeID())
 			return nil
 		}
-		return fmt.Errorf("error instantiating chaincode: %v", err)
+		return errors.Errorf("error instantiating chaincode: %v", err)
 	}
 
 	fmt.Printf("...successfuly instantiated chaincode %s on channel %s.\n", cliconfig.Config().ChaincodeID(), cliconfig.Config().ChannelID())
@@ -130,7 +131,7 @@ func (action *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePo
 	for _, orgID := range cliconfig.Config().OrgIDs() {
 		mspID, err := cliconfig.Config().MspID(orgID)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to get the MSP ID from org ID %s: %s", orgID, err)
+			return nil, errors.Errorf("Unable to get the MSP ID from org ID %s: %s", orgID, err)
 		}
 		mspIDs = append(mspIDs, mspID)
 	}
@@ -140,7 +141,7 @@ func (action *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePo
 func newChaincodePolicy(policyString string) (*fabricCommon.SignaturePolicyEnvelope, error) {
 	ccPolicy, err := cauthdslparser.FromString(policyString)
 	if err != nil {
-		return nil, fmt.Errorf("invalid chaincode policy [%s]: %s", policyString, err)
+		return nil, errors.Errorf("invalid chaincode policy [%s]: %s", policyString, err)
 	}
 	return ccPolicy, nil
 }

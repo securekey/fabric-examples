@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	channel "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/channel"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -39,9 +40,9 @@ var chainJoinCmd = &cobra.Command{
 
 func getChannelJoinCmd() *cobra.Command {
 	flags := chainJoinCmd.Flags()
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitOrdererURL(flags)
-	cliconfig.Config().InitPeerURL(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitOrdererURL(flags)
+	cliconfig.InitPeerURL(flags)
 	return chainJoinCmd
 }
 
@@ -56,7 +57,7 @@ func newChannelJoinAction(flags *pflag.FlagSet) (*channelJoinAction, error) {
 		return nil, err
 	}
 	if len(action.Peers()) == 0 {
-		return nil, fmt.Errorf("at least one peer is required for join")
+		return nil, errors.Errorf("at least one peer is required for join")
 	}
 	return action, nil
 }
@@ -82,7 +83,7 @@ func (action *channelJoinAction) joinChannel(orgID string, peers []apifabclient.
 
 	channelClient, err := action.OrgAdminChannelClient(orgID)
 	if err != nil {
-		return fmt.Errorf("Error getting admin channel client: %v", err)
+		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
 
 	// FIXME: Remove this when SDK includes a SystemChannelClient
@@ -94,7 +95,7 @@ func (action *channelJoinAction) joinChannel(orgID string, peers []apifabclient.
 
 	genesisBlock, err := channelClient.GenesisBlock(&apifabclient.GenesisBlockRequest{TxnID: txnID})
 	if err != nil {
-		return fmt.Errorf("Error getting genesis block: %v", err)
+		return errors.Errorf("Error getting genesis block: %v", err)
 	}
 
 	ctx := channelClient.(*channel.Channel).ClientContext()
@@ -105,7 +106,7 @@ func (action *channelJoinAction) joinChannel(orgID string, peers []apifabclient.
 		GenesisBlock: genesisBlock,
 		TxnID:        txnID,
 	}); err != nil {
-		return fmt.Errorf("Could not join channel: %v", err)
+		return errors.Errorf("Could not join channel: %v", err)
 	}
 
 	fmt.Printf("Channel %s joined!\n", cliconfig.Config().ChannelID())

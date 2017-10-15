@@ -9,6 +9,7 @@ package query
 import (
 	"fmt"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -42,9 +43,9 @@ var queryTXCmd = &cobra.Command{
 
 func getQueryTXCmd() *cobra.Command {
 	flags := queryTXCmd.Flags()
-	cliconfig.Config().InitChannelID(flags)
-	cliconfig.Config().InitTxID(flags)
-	cliconfig.Config().InitPeerURL(flags)
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitTxID(flags)
+	cliconfig.InitPeerURL(flags)
 	return queryTXCmd
 }
 
@@ -62,7 +63,7 @@ func newQueryTXAction(flags *pflag.FlagSet) (*queryTXAction, error) {
 func (action *queryTXAction) run() error {
 	channelClient, err := action.AdminChannelClient()
 	if err != nil {
-		return fmt.Errorf("Error getting admin channel client: %v", err)
+		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
 
 	tx, err := channelClient.QueryTransaction(cliconfig.Config().TxID())

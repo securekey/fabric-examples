@@ -7,10 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
-	"fmt"
 	"sync"
 
-	"github.com/hyperledger/fabric-sdk-go/def/fabapi"
+	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 
 	"strings"
 
@@ -24,7 +23,7 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/def/fabapi/opt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/events"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/orderer"
-	logging "github.com/op/go-logging"
+	"github.com/hyperledger/fabric-sdk-go/pkg/logging"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/printer"
 	"github.com/spf13/pflag"
@@ -50,7 +49,7 @@ type Action struct {
 	peersByOrg   map[string][]apifabclient.Peer
 	peers        []apifabclient.Peer
 	orgIDByPeer  map[string]string
-	sdk          *fabapi.FabricSDK
+	sdk          *deffab.FabricSDK
 	printer      printer.Printer
 	eventHubInit sync.Once
 	initError    error
@@ -67,7 +66,6 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		return err
 	}
 
-	// Create SDK setup for the integration tests
 	sdkOptions := deffab.Options{
 		ProviderFactory: NewProviderFactory(cliconfig.Config()),
 		StateStoreOpts: opt.StateStoreOpts{
@@ -77,7 +75,7 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 
 	sdk, err := deffab.NewSDK(sdkOptions)
 	if err != nil {
-		return fmt.Errorf("Error initializing SDK: %s", err)
+		return errors.Errorf("Error initializing SDK: %s", err)
 	}
 	action.sdk = sdk
 
@@ -92,8 +90,10 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 	for _, orgID := range cliconfig.Config().OrgIDs() {
 		peersConfig, err := cliconfig.Config().PeersConfig(orgID)
 		if err != nil {
-			return fmt.Errorf("Error getting peer configs for org [%s]: %v", orgID, err)
+			return errors.Errorf("Error getting peer configs for org [%s]: %v", orgID, err)
 		}
+
+		cliconfig.Config().Logger().Debugf("Peers for org [%s]: %v\n", orgID, peersConfig)
 
 		var peers []apifabclient.Peer
 		for _, p := range peersConfig {
@@ -105,7 +105,7 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 				p.URL,
 				p.TLSCACerts.Path, serverHostOverride, cliconfig.Config())
 			if err != nil {
-				return fmt.Errorf("NewPeer return error: %v", err)
+				return errors.Errorf("NewPeer return error: %v", err)
 			}
 			peers = append(peers, endorser)
 			action.orgIDByPeer[endorser.URL()] = orgID
@@ -114,7 +114,7 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		allPeers = append(allPeers, peers...)
 	}
 
-	if cliconfig.Config().Logger().IsEnabledFor(logging.DEBUG) {
+	if cliconfig.Config().IsLoggingEnabledFor(logging.DEBUG) {
 		cliconfig.Config().Logger().Debug("All Peers:")
 		for orgID, peers := range allPeersByOrg {
 			cliconfig.Config().Logger().Debugf("Org: %s\n", orgID)
@@ -138,7 +138,7 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 			cliconfig.Config().Logger().Debugf("- Name: %s, URL: %s\n", peer.Name(), peer.URL())
 			orgID := action.orgIDByPeer[peer.URL()]
 			if orgID == "" {
-				return fmt.Errorf("unable to find org for peer: %s", peer.URL())
+				return errors.Errorf("unable to find org for peer: %s", peer.URL())
 			}
 			action.peersByOrg[orgID] = append(action.peersByOrg[orgID], peer)
 		}
@@ -151,14 +151,14 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 
 	// context, err := sdk.NewContext(cliconfig.Config().OrgID())
 	// if err != nil {
-	// 	return fmt.Errorf("Error getting a context for org: %s", err)
+	// 	return errors.Errorf("Error getting a context for org: %s", err)
 	// }
 	// action.context = context
 
 	// // action.SetUserContext(action.OrgUser(cliconfig.Config().OrgID()))
 	// user, err := action.User()
 	// if err != nil {
-	// 	return fmt.Errorf("Error getting user: %s", err)
+	// 	return errors.Errorf("Error getting user: %s", err)
 	// }
 
 	// action.SetUserContext(user)
@@ -183,12 +183,12 @@ func (action *Action) Flags() *pflag.FlagSet {
 func (action *Action) ChannelClient() (apitxn.ChannelClient, error) {
 	user, err := action.User()
 	if err != nil {
-		return nil, fmt.Errorf("error getting user: %s", err)
+		return nil, errors.Errorf("error getting user: %s", err)
 	}
 
 	session, err := action.session(action.OrgID(), user)
 	if err != nil {
-		return nil, fmt.Errorf("error getting user session: %s", err)
+		return nil, errors.Errorf("error getting user session: %s", err)
 	}
 
 	return action.sdk.SessionFactory.NewChannelClient(action.sdk, session, action.sdk.ConfigProvider(), cliconfig.Config().ChannelID())
@@ -206,17 +206,17 @@ func (action *Action) OrgAdminChannelClient(orgID string) (apifabclient.Channel,
 
 	fabClient, err := action.ClientForUser(orgID, user)
 	if err != nil {
-		return nil, fmt.Errorf("error creating fabric client: %s", err)
+		return nil, errors.Errorf("error creating fabric client: %s", err)
 	}
 
 	channelClient, err := fabClient.NewChannel(channelID)
 	if err != nil {
-		return nil, fmt.Errorf("error creating channel client: %v", err)
+		return nil, errors.Errorf("error creating channel client: %v", err)
 	}
 
 	orderers, err := action.Orderers()
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving orderers: %v", err)
+		return nil, errors.Errorf("error retrieving orderers: %v", err)
 	}
 
 	for _, orderer := range orderers {
@@ -228,7 +228,7 @@ func (action *Action) OrgAdminChannelClient(orgID string) (apifabclient.Channel,
 	}
 
 	if err := channelClient.Initialize(nil); err != nil {
-		return nil, fmt.Errorf("Error initializing channel: %v", err)
+		return nil, errors.Errorf("Error initializing channel: %v", err)
 	}
 
 	return channelClient, nil
@@ -293,7 +293,7 @@ func (action *Action) PeersByOrg() map[string][]apifabclient.Peer {
 func (action *Action) OrgOfPeer(peerURL string) (string, error) {
 	orgID, ok := action.orgIDByPeer[peerURL]
 	if !ok {
-		return "", fmt.Errorf("org not found for peer %s", peerURL)
+		return "", errors.Errorf("org not found for peer %s", peerURL)
 	}
 	return orgID, nil
 }
@@ -312,7 +312,7 @@ func (action *Action) ClientForUser(orgID string, user apifabclient.User) (apifa
 	cliconfig.Config().Logger().Debugf("Create admin channel client for user [%s] in org [%s]...", user.Name(), orgID)
 	session, err := action.session(orgID, user)
 	if err != nil {
-		return nil, fmt.Errorf("error getting session for user [%s,%s]: %s", orgID, user.Name(), err)
+		return nil, errors.Errorf("error getting session for user [%s,%s]: %s", orgID, user.Name(), err)
 	}
 
 	cliconfig.Config().Logger().Infof("Creating new system client with user session[%s:%s:%s]\n", orgID, session.Identity().Name(), session.Identity().MspID())
@@ -327,7 +327,7 @@ func (action *Action) session(orgID string, user apifabclient.User) (context.Ses
 		var err error
 		session, err = action.newSession(orgID, user)
 		if err != nil {
-			return nil, fmt.Errorf("error creating session for user [%s] in org [%s]: %s", user.Name(), orgID, err)
+			return nil, errors.Errorf("error creating session for user [%s] in org [%s]: %s", user.Name(), orgID, err)
 		}
 		cliconfig.Config().Logger().Debugf("Created session for user [%s] in org [%s]", user.Name(), orgID)
 		action.sessions[key] = session
@@ -362,7 +362,7 @@ func (action *Action) GetOrgID(mspID string) (string, error) {
 			return orgID, nil
 		}
 	}
-	return "", fmt.Errorf("unable to find org ID for MSP [%s]", mspID)
+	return "", errors.Errorf("unable to find org ID for MSP [%s]", mspID)
 }
 
 // User returns the enrolled user. If the user doesn't exist then a new user is enrolled.
@@ -380,31 +380,31 @@ func (action *Action) newUser(orgID, userName, pwd string) (apifabclient.User, e
 	var user apifabclient.User
 	// user, err := action.Client().LoadUserFromStateStore(userName)
 	// if err != nil {
-	// 	return nil, fmt.Errorf("unable to load user: %s: %s", userName, err)
+	// 	return nil, errors.Errorf("unable to load user: %s: %s", userName, err)
 	// }
 
 	if user == nil {
 		cliconfig.Config().Logger().Infof("Enrolling user %s...\n", userName)
 		mspID, err := cliconfig.Config().MspID(orgID)
 		if err != nil {
-			return nil, fmt.Errorf("error reading MSP ID config: %s", err)
+			return nil, errors.Errorf("error reading MSP ID config: %s", err)
 		}
 
 		caClient, err := deffab.NewCAClient(orgID, cliconfig.Config())
 		if err != nil {
-			return nil, fmt.Errorf("error creating CA client: %s", err)
+			return nil, errors.Errorf("error creating CA client: %s", err)
 		}
 
 		cliconfig.Config().Logger().Infof("Creating new user %s...\n", userName)
 		user, err = deffab.NewUser(cliconfig.Config(), caClient, userName, pwd, mspID)
 		if err != nil {
-			return nil, fmt.Errorf("NewUser returned error: %v", err)
+			return nil, errors.Errorf("NewUser returned error: %v", err)
 		}
 
 		// cliconfig.Config().Logger().Infof("Saving user to state store %s...\n", userName)
 		// err = action.Client().SaveUserToStateStore(user, false)
 		// if err != nil {
-		// 	return nil, fmt.Errorf("SaveUserToStateStore returned error: %v", err)
+		// 	return nil, errors.Errorf("SaveUserToStateStore returned error: %v", err)
 		// }
 	}
 
@@ -416,7 +416,7 @@ func (action *Action) newUser(orgID, userName, pwd string) (apifabclient.User, e
 // OrgUser returns the pre-enrolled user for the given organization
 func (action *Action) OrgUser(orgID, userName string) (apifabclient.User, error) {
 	if userName == "" {
-		return nil, fmt.Errorf("no user name specified")
+		return nil, errors.Errorf("no user name specified")
 	}
 
 	user, err := action.sdk.NewPreEnrolledUser(orgID, userName)
@@ -461,7 +461,7 @@ func (action *Action) PeerFromURL(url string) apifabclient.Peer {
 func (action *Action) Orderers() ([]apifabclient.Orderer, error) {
 	ordererConfigs, err := cliconfig.Config().OrderersConfig()
 	if err != nil {
-		return nil, fmt.Errorf("Could not orderer configurations: %s", err)
+		return nil, errors.Errorf("Could not orderer configurations: %s", err)
 	}
 
 	orderers := make([]apifabclient.Orderer, len(ordererConfigs))
@@ -474,7 +474,7 @@ func (action *Action) Orderers() ([]apifabclient.Orderer, error) {
 			ordererConfig.URL,
 			ordererConfig.TLSCACerts.Path, serverHostOverride, cliconfig.Config())
 		if err != nil {
-			return nil, fmt.Errorf("NewOrderer return error: %v", err)
+			return nil, errors.Errorf("NewOrderer return error: %v", err)
 		}
 		orderers[i] = orderer
 	}
@@ -486,7 +486,7 @@ func (action *Action) Orderers() ([]apifabclient.Orderer, error) {
 func (action *Action) RandomOrderer() (apifabclient.Orderer, error) {
 	ordererConfig, err := cliconfig.Config().RandomOrdererConfig()
 	if err != nil {
-		return nil, fmt.Errorf("Could not get config for orderer: %s", err)
+		return nil, errors.Errorf("Could not get config for orderer: %s", err)
 	}
 
 	serverHostOverride := ""
@@ -497,7 +497,7 @@ func (action *Action) RandomOrderer() (apifabclient.Orderer, error) {
 		ordererConfig.URL,
 		ordererConfig.TLSCACerts.Path, serverHostOverride, cliconfig.Config())
 	if err != nil {
-		return nil, fmt.Errorf("NewOrderer return error: %v", err)
+		return nil, errors.Errorf("NewOrderer return error: %v", err)
 	}
 
 	return orderer, nil
@@ -505,8 +505,6 @@ func (action *Action) RandomOrderer() (apifabclient.Orderer, error) {
 
 func levelFromName(levelName string) logging.Level {
 	switch levelName {
-	case "CRITICAL":
-		return logging.CRITICAL
 	case "ERROR":
 		return logging.ERROR
 	case "WARNING":
@@ -516,7 +514,7 @@ func levelFromName(levelName string) logging.Level {
 	case "DEBUG":
 		return logging.DEBUG
 	default:
-		return logging.CRITICAL
+		return logging.ERROR
 	}
 }
 
@@ -534,7 +532,7 @@ func getPeers(allPeers []apifabclient.Peer, peerURLs string) ([]apifabclient.Pee
 		}
 	}
 	if len(selectedPeers) != len(s) {
-		return nil, fmt.Errorf("one or more peers is invalid: %s", peerURLs)
+		return nil, errors.Errorf("one or more peers is invalid: %s", peerURLs)
 	}
 	return selectedPeers, nil
 }
@@ -542,12 +540,12 @@ func getPeers(allPeers []apifabclient.Peer, peerURLs string) ([]apifabclient.Pee
 func (action *Action) getEventHub() (apifabclient.EventHub, error) {
 	fabClient, err := action.Client()
 	if err != nil {
-		return nil, fmt.Errorf("error getting fabric client: %s", err)
+		return nil, errors.Errorf("error getting fabric client: %s", err)
 	}
 
 	eventHub, err := events.NewEventHub(fabClient)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating new event hub: %v", err)
+		return nil, errors.Errorf("Error creating new event hub: %v", err)
 	}
 
 	peerConfig, err := action.peerConfig()
@@ -570,7 +568,7 @@ func (action *Action) getEventHub() (apifabclient.EventHub, error) {
 func (action *Action) peerConfig() (*apiconfig.PeerConfig, error) {
 	peersConfig, err := cliconfig.Config().PeersConfig(action.OrgID())
 	if err != nil {
-		return nil, fmt.Errorf("Error reading peers config for %s: %v", action.OrgID(), err)
+		return nil, errors.Errorf("Error reading peers config for %s: %v", action.OrgID(), err)
 	}
 
 	peer := action.Peer()
@@ -581,7 +579,7 @@ func (action *Action) peerConfig() (*apiconfig.PeerConfig, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("No configuration found for peer %s", peer.URL())
+	return nil, errors.Errorf("No configuration found for peer %s", peer.URL())
 }
 
 func (action *Action) newEventHub() (apifabclient.EventHub, error) {
@@ -589,7 +587,7 @@ func (action *Action) newEventHub() (apifabclient.EventHub, error) {
 
 	eventHub, err := action.getEventHub()
 	if err != nil {
-		return nil, fmt.Errorf("unable to get event hub: %s", err)
+		return nil, errors.Errorf("unable to get event hub: %s", err)
 	}
 
 	// // Set the user to the org admin since the 'register' message must be signed by a user in the peer's MSP
@@ -597,7 +595,7 @@ func (action *Action) newEventHub() (apifabclient.EventHub, error) {
 	// defer context.Restore()
 
 	if err := eventHub.Connect(); err != nil {
-		return nil, fmt.Errorf("unable to connect to event hub: %s", err)
+		return nil, errors.Errorf("unable to connect to event hub: %s", err)
 	}
 
 	return eventHub, nil
@@ -607,13 +605,13 @@ func (action *Action) newSession(orgID string, user apifabclient.User) (context.
 	cliconfig.Config().Logger().Debugf("... got user [%s]. Creating context for org [%s]...\n", user.Name(), orgID)
 	context, err := action.sdk.NewContext(orgID)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting a context for org: %s", err)
+		return nil, errors.Errorf("Error getting a context for org: %s", err)
 	}
 
 	cliconfig.Config().Logger().Debugf("... created context for org [%s]. Creating session for org [%s], user [%s]...\n", orgID, orgID, user.Name())
 	session, err := action.sdk.NewSession(context, user)
 	if err != nil {
-		return nil, fmt.Errorf("NewSession returned error: %v", err)
+		return nil, errors.Errorf("NewSession returned error: %v", err)
 	}
 	cliconfig.Config().Logger().Debugf("... successfully created session for org [%s], user [%s].\n", orgID, user.Name())
 
