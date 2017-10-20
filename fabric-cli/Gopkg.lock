@@ -73,12 +73,6 @@
   revision = "d0303fe809921458f417bcf828397a65db30a7e4"
 
 [[projects]]
-  name = "github.com/op/go-logging"
-  packages = ["."]
-  revision = "b2cb9fa56473e98db8caba80237377e83fe44db5"
-  version = "v1"
-
-[[projects]]
   name = "github.com/pelletier/go-toml"
   packages = ["."]
   revision = "16398bac157da96aa88f98a2df640c7f32af1da2"
@@ -177,6 +171,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2bdda59eda12d1844d8343d8e94ffb1f45afb266b1f7ceece7d0fe3f18b0eadf"
+  inputs-digest = "3f65f89b21aad66e169e6263015d0e48ffa425f6e4c7c9ef558653bd3b1f55fe"
   solver-name = "gps-cdcl"
   solver-version = 1
