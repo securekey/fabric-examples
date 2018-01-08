@@ -7,15 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"encoding/json"
 	"fmt"
-	"sync/atomic"
+	"strconv"
+	"sync"
 	"time"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/querytask"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/executor"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -54,11 +55,15 @@ func getQueryCmd() *cobra.Command {
 	cliconfig.InitIterations(flags)
 	cliconfig.InitSleepTime(flags)
 	cliconfig.InitTimeout(flags)
+	cliconfig.InitPrintPayloadOnly(flags)
+	cliconfig.InitConcurrency(flags)
+	cliconfig.InitVerbosity(flags)
+	cliconfig.InitSelectionProvider(flags)
 	return queryCmd
 }
 
 type queryAction struct {
-	common.Action
+	action.Action
 	numInvoked uint32
 	done       chan bool
 }
@@ -69,72 +74,99 @@ func newQueryAction(flags *pflag.FlagSet) (*queryAction, error) {
 	return action, err
 }
 
-func (action *queryAction) query() error {
-	channelClient, err := action.ChannelClient()
+func (a *queryAction) query() error {
+	channelClient, err := a.ChannelClient()
 	if err != nil {
 		return errors.Errorf("Error getting channel client: %v", err)
 	}
 
-	argBytes := []byte(cliconfig.Config().Args())
-	args := &common.ArgStruct{}
-	err = json.Unmarshal(argBytes, args)
+	argsArray, err := action.ArgsArray()
 	if err != nil {
-		return errors.Errorf("Error unmarshaling JSON arg string: %v", err)
+		return err
 	}
 
-	if cliconfig.Config().Iterations() > 1 {
-		go action.queryMultiple(channelClient, args.Func, asBytes(args.Args), cliconfig.Config().Iterations())
+	executor := executor.NewConcurrent("Query Chaincode", cliconfig.Config().Concurrency())
+	executor.Start()
+	defer executor.Stop(true)
 
-		completed := false
-		for !completed {
+	verbose := cliconfig.Config().Verbose() || cliconfig.Config().Iterations() == 1
+
+	var mutex sync.RWMutex
+	var tasks []*querytask.Task
+	var errs []error
+	var wg sync.WaitGroup
+	var taskID int
+	var success int
+	for i := 0; i < cliconfig.Config().Iterations(); i++ {
+		for _, args := range argsArray {
+			taskID++
+			task := querytask.New(
+				strconv.Itoa(taskID), channelClient, &args, a.Printer(), verbose,
+
+				func(err error) {
+					defer wg.Done()
+					mutex.Lock()
+					if err != nil {
+						errs = append(errs, err)
+					} else {
+						success++
+					}
+					mutex.Unlock()
+				})
+			tasks = append(tasks, task)
+		}
+	}
+
+	numInvocations := len(tasks)
+	wg.Add(numInvocations)
+
+	done := make(chan bool)
+	go func() {
+		ticker := time.NewTicker(3 * time.Second)
+		for {
 			select {
-			case <-action.done:
-				completed = true
-			case <-time.After(5 * time.Second):
-				fmt.Printf("... completed %d out of %d\n", action.numInvoked, cliconfig.Config().Iterations())
+			case <-ticker.C:
+				mutex.RLock()
+				if len(errs) > 0 {
+					fmt.Printf("*** %d failed query(s) out of %d\n", len(errs), numInvocations)
+				}
+				fmt.Printf("*** %d successfull query(s) out of %d\n", success, numInvocations)
+				mutex.RUnlock()
+			case <-done:
+				return
 			}
 		}
-	} else {
-		if response, err := action.doQuery(channelClient, args.Func, asBytes(args.Args)); err != nil {
-			fmt.Printf("Error invoking chaincode: %v\n", err)
-		} else {
-			action.Printer().Print("%s", response)
+	}()
+
+	startTime := time.Now()
+
+	for _, task := range tasks {
+		if err := executor.Submit(task); err != nil {
+			return errors.Errorf("error submitting task: %s", err)
 		}
-		fmt.Println("Done!")
+	}
+
+	// Wait for all tasks to complete
+	wg.Wait()
+	done <- true
+	duration := time.Now().Sub(startTime)
+
+	if len(errs) > 0 {
+		fmt.Printf("\n*** %d errors querying chaincode:\n", len(errs))
+		for _, err := range errs {
+			fmt.Printf("%s\n", err)
+		}
+	}
+
+	if numInvocations > 1 {
+		fmt.Printf("\n")
+		fmt.Printf("*** ---------- Summary: ----------\n")
+		fmt.Printf("***   - Queries:     %d\n", numInvocations)
+		fmt.Printf("***   - Successfull: %d\n", success)
+		fmt.Printf("***   - Duration:    %s\n", duration)
+		fmt.Printf("***   - Rate:        %2.2f/s\n", float64(numInvocations)/duration.Seconds())
+		fmt.Printf("*** ------------------------------\n")
 	}
 
 	return nil
-}
-func (action *queryAction) queryMultiple(channel apitxn.ChannelClient, fctn string, args [][]byte, iterations int) {
-	fmt.Printf("Querying CC %d times ...\n", iterations)
-	for i := 0; i < iterations; i++ {
-		if response, err := action.doQuery(channel, fctn, args); err != nil {
-			fmt.Printf("Error invoking chaincode: %v\n", err)
-		} else {
-			action.Printer().Print("%s", response)
-		}
-
-		if (i+1) < iterations && cliconfig.Config().SleepTime() > 0 {
-			time.Sleep(time.Duration(cliconfig.Config().SleepTime()) * time.Millisecond)
-		}
-		atomic.AddUint32(&action.numInvoked, 1)
-	}
-	fmt.Printf("Completed %d queries\n", iterations)
-	action.done <- true
-}
-
-func (action *queryAction) doQuery(channelClient apitxn.ChannelClient, fctn string, args [][]byte) ([]byte, error) {
-	cliconfig.Config().Logger().Infof("Querying chaincode: %s on channel: %s, function: %s, args: %v\n", cliconfig.Config().ChaincodeID(), cliconfig.Config().ChannelID(), fctn, args)
-
-	return channelClient.QueryWithOpts(
-		apitxn.QueryRequest{
-			Fcn:         fctn,
-			Args:        args,
-			ChaincodeID: cliconfig.Config().ChaincodeID(),
-		},
-		apitxn.QueryOpts{
-			ProposalProcessors: action.ProposalProcessors(),
-			Timeout:            cliconfig.Config().Timeout(),
-		},
-	)
 }

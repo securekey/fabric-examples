@@ -21,12 +21,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/golang/groupcache"
-  packages = ["lru"]
-  revision = "b710c8433bd175204919eb38776e944233235d03"
-
-[[projects]]
-  branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto","ptypes","ptypes/any","ptypes/duration","ptypes/timestamp"]
   revision = "130e6b02ab059e7b717a096f397c5b60111cae74"
@@ -40,13 +34,13 @@
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/hcl"
-  packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
+  packages = [".","hcl/ast","hcl/parser","hcl/printer","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
   revision = "42e33e2d55a0ff1d6263f738896ea8c13571a8d0"
 
 [[projects]]
   name = "github.com/hyperledger/fabric-sdk-go"
-  packages = ["api/apiconfig","api/apifabca","api/apifabclient","api/apilogging","api/apitxn","def/fabapi","def/fabapi/context","def/fabapi/context/defprovider","def/fabapi/opt","internal/github.com/hyperledger/fabric-ca/api","internal/github.com/hyperledger/fabric-ca/lib","internal/github.com/hyperledger/fabric-ca/lib/tls","internal/github.com/hyperledger/fabric-ca/sdkpatch/logbridge","internal/github.com/hyperledger/fabric-ca/util","internal/github.com/hyperledger/fabric/common/channelconfig","internal/github.com/hyperledger/fabric/common/crypto","internal/github.com/hyperledger/fabric/common/util","internal/github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil","internal/github.com/hyperledger/fabric/core/ledger/util","internal/github.com/hyperledger/fabric/events/consumer","internal/github.com/hyperledger/fabric/msp","internal/github.com/hyperledger/fabric/protos/orderer","internal/github.com/hyperledger/fabric/protos/utils","internal/github.com/hyperledger/fabric/sdkpatch/logbridge","pkg/config","pkg/config/urlutil","pkg/errors","pkg/fabric-ca-client","pkg/fabric-client","pkg/fabric-client/channel","pkg/fabric-client/credentialmgr","pkg/fabric-client/events","pkg/fabric-client/events/consumer","pkg/fabric-client/identity","pkg/fabric-client/internal","pkg/fabric-client/internal/txnproc","pkg/fabric-client/keyvaluestore","pkg/fabric-client/mocks","pkg/fabric-client/orderer","pkg/fabric-client/packager","pkg/fabric-client/peer","pkg/fabric-client/signingmgr","pkg/fabric-txn/admin","pkg/fabric-txn/chclient","pkg/fabric-txn/discovery","pkg/fabric-txn/internal","pkg/logging","third_party/github.com/hyperledger/fabric/bccsp","third_party/github.com/hyperledger/fabric/bccsp/factory","third_party/github.com/hyperledger/fabric/bccsp/pkcs11","third_party/github.com/hyperledger/fabric/bccsp/signer","third_party/github.com/hyperledger/fabric/bccsp/sw","third_party/github.com/hyperledger/fabric/bccsp/utils","third_party/github.com/hyperledger/fabric/common/cauthdsl","third_party/github.com/hyperledger/fabric/protos/common","third_party/github.com/hyperledger/fabric/protos/ledger/rwset","third_party/github.com/hyperledger/fabric/protos/ledger/rwset/kvrwset","third_party/github.com/hyperledger/fabric/protos/msp","third_party/github.com/hyperledger/fabric/protos/orderer","third_party/github.com/hyperledger/fabric/protos/peer"]
-  revision = "ae5687361ea51c323d1a5cda8d2b74b066dafc4a"
+  packages = ["api/apiconfig","api/apicryptosuite","api/apifabca","api/apifabclient","api/apilogging","api/apitxn","api/apitxn/chmgmtclient","api/apitxn/resmgmtclient","def/fabapi","def/fabapi/context","def/fabapi/context/defprovider","def/fabapi/opt","internal/github.com/hyperledger/fabric-ca/api","internal/github.com/hyperledger/fabric-ca/lib","internal/github.com/hyperledger/fabric-ca/lib/tls","internal/github.com/hyperledger/fabric-ca/sdkpatch/cryptosuitebridge","internal/github.com/hyperledger/fabric-ca/sdkpatch/logbridge","internal/github.com/hyperledger/fabric-ca/util","internal/github.com/hyperledger/fabric/bccsp","internal/github.com/hyperledger/fabric/bccsp/factory/sw","internal/github.com/hyperledger/fabric/bccsp/signer","internal/github.com/hyperledger/fabric/bccsp/sw","internal/github.com/hyperledger/fabric/bccsp/utils","internal/github.com/hyperledger/fabric/common/channelconfig","internal/github.com/hyperledger/fabric/common/crypto","internal/github.com/hyperledger/fabric/common/ledger","internal/github.com/hyperledger/fabric/common/util","internal/github.com/hyperledger/fabric/core/ledger","internal/github.com/hyperledger/fabric/events/consumer","internal/github.com/hyperledger/fabric/msp","internal/github.com/hyperledger/fabric/protos/orderer","internal/github.com/hyperledger/fabric/sdkpatch/cryptosuitebridge","internal/github.com/hyperledger/fabric/sdkpatch/logbridge","pkg/config","pkg/config/comm","pkg/config/urlutil","pkg/cryptosuite","pkg/cryptosuite/bccsp/sw","pkg/cryptosuite/bccsp/wrapper","pkg/errors","pkg/fabric-ca-client","pkg/fabric-client","pkg/fabric-client/ccpackager/gopackager","pkg/fabric-client/channel","pkg/fabric-client/credentialmgr","pkg/fabric-client/events","pkg/fabric-client/events/consumer","pkg/fabric-client/identity","pkg/fabric-client/internal","pkg/fabric-client/internal/txnproc","pkg/fabric-client/keyvaluestore","pkg/fabric-client/mocks","pkg/fabric-client/orderer","pkg/fabric-client/peer","pkg/fabric-client/signingmgr","pkg/fabric-txn/chclient","pkg/fabric-txn/chmgmtclient","pkg/fabric-txn/discovery/staticdiscovery","pkg/fabric-txn/internal","pkg/fabric-txn/resmgmtclient","pkg/fabric-txn/selection/dynamicselection","pkg/fabric-txn/selection/dynamicselection/pgresolver","pkg/fabric-txn/selection/staticselection","pkg/logging","pkg/logging/deflogger","pkg/logging/utils","test/metadata","third_party/github.com/hyperledger/fabric/common/cauthdsl","third_party/github.com/hyperledger/fabric/core/common/ccprovider","third_party/github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil","third_party/github.com/hyperledger/fabric/core/ledger/util","third_party/github.com/hyperledger/fabric/protos/common","third_party/github.com/hyperledger/fabric/protos/ledger/rwset","third_party/github.com/hyperledger/fabric/protos/ledger/rwset/kvrwset","third_party/github.com/hyperledger/fabric/protos/msp","third_party/github.com/hyperledger/fabric/protos/orderer","third_party/github.com/hyperledger/fabric/protos/peer","third_party/github.com/hyperledger/fabric/protos/utils"]
+  revision = "d3dc31289b555b5a01d74aad135a0c92d268d374"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -59,12 +53,6 @@
   packages = ["."]
   revision = "be5ece7dd465ab0765a9682137865547526d1dfb"
   version = "v1.7.3"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/miekg/pkcs11"
-  packages = ["."]
-  revision = "eda1d775a087f2a96fec7c7876ea94dea43e6027"
 
 [[projects]]
   branch = "master"
@@ -115,10 +103,10 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/spf13/viper"
   packages = ["."]
-  revision = "25b30aa063fc18e48662b86996252eabdcf2f0c7"
-  version = "v1.0.0"
+  revision = "aafc9e6bc7b7bb53ddaa75a5ef49a17d6e654be5"
 
 [[projects]]
   branch = "master"
@@ -171,6 +159,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3f65f89b21aad66e169e6263015d0e48ffa425f6e4c7c9ef558653bd3b1f55fe"
+  inputs-digest = "d8a40de2e4647a66e9b18acf646838157d336f16737ea96a891ce29912cd913c"
   solver-name = "gps-cdcl"
   solver-version = 1

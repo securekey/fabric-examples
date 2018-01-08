@@ -7,17 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"encoding/json"
 	"fmt"
-	"sync/atomic"
+	"strconv"
+	"sync"
 	"time"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/invoketask"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/executor"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -56,19 +55,19 @@ func getInvokeCmd() *cobra.Command {
 	cliconfig.InitIterations(flags)
 	cliconfig.InitSleepTime(flags)
 	cliconfig.InitTimeout(flags)
+	cliconfig.InitPrintPayloadOnly(flags)
+	cliconfig.InitConcurrency(flags)
+	cliconfig.InitMaxAttempts(flags)
+	cliconfig.InitResubmitDelay(flags)
+	cliconfig.InitVerbosity(flags)
+	cliconfig.InitSelectionProvider(flags)
 	return invokeCmd
 }
 
 type invokeAction struct {
-	common.Action
+	action.Action
 	numInvoked uint32
 	done       chan bool
-}
-
-type txStatus struct {
-	txID string
-	code pb.TxValidationCode
-	err  error
 }
 
 func newInvokeAction(flags *pflag.FlagSet) (*invokeAction, error) {
@@ -77,133 +76,121 @@ func newInvokeAction(flags *pflag.FlagSet) (*invokeAction, error) {
 	return action, err
 }
 
-func (action *invokeAction) invoke() error {
-	channelClient, err := action.ChannelClient()
+func (a *invokeAction) invoke() error {
+	channelClient, err := a.ChannelClient()
 	if err != nil {
 		return errors.Errorf("Error getting channel client: %v", err)
 	}
 
-	argBytes := []byte(cliconfig.Config().Args())
-	args := &common.ArgStruct{}
-	err = json.Unmarshal(argBytes, args)
+	argsArray, err := action.ArgsArray()
 	if err != nil {
-		return errors.Errorf("Error unmarshaling JSON arg string: %v", err)
+		return err
 	}
 
-	if cliconfig.Config().Iterations() > 1 {
-		go action.invokeMultiple(channelClient, args.Func, asBytes(args.Args), cliconfig.Config().Iterations())
+	executor := executor.NewConcurrent("Invoke Chaincode", cliconfig.Config().Concurrency())
+	executor.Start()
+	defer executor.Stop(true)
 
-		completed := false
-		for !completed {
+	var errs []error
+	success := 0
+
+	var wg sync.WaitGroup
+	var mutex sync.RWMutex
+	var tasks []*invoketask.Task
+	var taskID int
+	for i := 0; i < cliconfig.Config().Iterations(); i++ {
+		for _, args := range argsArray {
+			taskID++
+			task := invoketask.New(
+				strconv.Itoa(taskID), channelClient,
+				cliconfig.Config().ChaincodeID(),
+				&args, executor,
+				cliconfig.Config().MaxAttempts(),
+				cliconfig.Config().ResubmitDelay(),
+				cliconfig.Config().Verbose() || cliconfig.Config().Iterations() == 1,
+				a.Printer(),
+
+				func(err error) {
+					defer wg.Done()
+					mutex.Lock()
+					defer mutex.Unlock()
+					if err != nil {
+						errs = append(errs, err)
+					} else {
+						success++
+					}
+				})
+			tasks = append(tasks, task)
+		}
+	}
+
+	numInvocations := len(tasks)
+
+	wg.Add(numInvocations)
+
+	done := make(chan bool)
+	go func() {
+		ticker := time.NewTicker(3 * time.Second)
+		for {
 			select {
-			case <-action.done:
-				completed = true
-			case <-time.After(cliconfig.Config().Timeout()):
-				fmt.Printf("... completed %d out of %d\n", action.numInvoked, cliconfig.Config().Iterations())
+			case <-ticker.C:
+				mutex.RLock()
+				if len(errs) > 0 {
+					fmt.Printf("*** %d failed invocation(s) out of %d\n", len(errs), numInvocations)
+				}
+				fmt.Printf("*** %d successfull invocation(s) out of %d\n", success, numInvocations)
+				mutex.RUnlock()
+			case <-done:
+				return
 			}
 		}
-	} else {
-		if err := action.doInvoke(channelClient, args.Func, asBytes(args.Args)); err != nil {
-			fmt.Printf("Error invoking chaincode: %v\n", err)
-		} else {
-			fmt.Println("Invocation successful!")
+	}()
+
+	startTime := time.Now()
+
+	for _, task := range tasks {
+		if err := executor.Submit(task); err != nil {
+			return errors.Errorf("error submitting task: %s", err)
 		}
+	}
+
+	// Wait for all tasks to complete
+	wg.Wait()
+	done <- true
+
+	duration := time.Now().Sub(startTime)
+
+	var allErrs []error
+	var attempts int
+	for _, task := range tasks {
+		attempts = attempts + task.Attempts()
+		if task.LastError() != nil {
+			allErrs = append(allErrs, task.LastError())
+		}
+	}
+
+	if len(errs) > 0 {
+		fmt.Printf("\n*** %d errors invoking chaincode:\n", len(errs))
+		for _, err := range errs {
+			fmt.Printf("%s\n", err)
+		}
+	} else if len(allErrs) > 0 {
+		fmt.Printf("\n*** %d transient errors invoking chaincode:\n", len(allErrs))
+		for _, err := range allErrs {
+			fmt.Printf("%s\n", err)
+		}
+	}
+
+	if numInvocations > 1 {
+		fmt.Printf("\n")
+		fmt.Printf("*** ---------- Summary: ----------\n")
+		fmt.Printf("***   - Invocations:     %d\n", numInvocations)
+		fmt.Printf("***   - Successfull:     %d\n", success)
+		fmt.Printf("***   - Total attempts:  %d\n", attempts)
+		fmt.Printf("***   - Duration:        %s\n", duration)
+		fmt.Printf("***   - Rate:            %2.2f/s\n", float64(numInvocations)/duration.Seconds())
+		fmt.Printf("*** ------------------------------\n")
 	}
 
 	return nil
-}
-
-func (action *invokeAction) invokeMultiple(chain apitxn.ChannelClient, fctn string, args [][]byte, iterations int) {
-	fmt.Printf("Invoking CC %d times ...\n", iterations)
-	for i := 0; i < iterations; i++ {
-		if err := action.doInvoke(chain, fctn, args); err != nil {
-			fmt.Printf("Error invoking chaincode: %v\n", err)
-		} else {
-			cliconfig.Config().Logger().Info("Invocation %d successful\n", i)
-		}
-		if (i+1) < iterations && cliconfig.Config().SleepTime() > 0 {
-			time.Sleep(time.Duration(cliconfig.Config().SleepTime()) * time.Millisecond)
-		}
-		atomic.AddUint32(&action.numInvoked, 1)
-	}
-	fmt.Printf("Completed %d invocations\n", iterations)
-	action.done <- true
-}
-
-func (action *invokeAction) ProcessTxProposalResponse(txProposalResponses []*apitxn.TransactionProposalResponse) ([]*apitxn.TransactionProposalResponse, error) {
-	action.Printer().PrintTxProposalResponses(txProposalResponses)
-	return txProposalResponses, nil
-}
-
-func (action *invokeAction) doInvoke(channel apitxn.ChannelClient, fctn string, args [][]byte) error {
-	cliconfig.Config().Logger().Infof("Invoking chaincode: %s on channel: %s, peers: %s, function: %s, args: [%v]\n",
-		cliconfig.Config().ChaincodeID(), cliconfig.Config().ChannelID(), asString(action.Peers()), fctn, args)
-
-	txStatusEvents := make(chan apitxn.ExecuteTxResponse)
-	txID, err := channel.ExecuteTxWithOpts(
-		apitxn.ExecuteTxRequest{
-			ChaincodeID: cliconfig.Config().ChaincodeID(),
-			Fcn:         fctn,
-			Args:        args,
-		},
-		apitxn.ExecuteTxOpts{
-			TxFilter:           action,
-			Notifier:           txStatusEvents,
-			ProposalProcessors: action.ProposalProcessors(),
-		},
-	)
-	if err != nil {
-		return errors.Errorf("SendTransactionProposal return error: %v", err)
-	}
-
-	cliconfig.Config().Logger().Debugf("invoke - Committing transaction - TxID: %s ...\n", txID)
-
-	select {
-	case s := <-txStatusEvents:
-		if s.TxValidationCode == pb.TxValidationCode_VALID {
-			return nil
-		}
-		return errors.Errorf("invoke Error received from eventhub for txid(%s). Code: %s, Details: %s", txID, s.TxValidationCode, s.Error)
-	case <-time.After(cliconfig.Config().Timeout()):
-		return errors.Errorf("timed out waiting to receive block event for txid(%s)", txID)
-	}
-}
-
-func (action *invokeAction) registerTxEvent(txnID apitxn.TransactionID) (chan txStatus, error) {
-	eventHub, err := action.EventHub()
-	if err != nil {
-		return nil, err
-	}
-
-	status := make(chan txStatus)
-
-	eventHub.RegisterTxEvent(txnID, func(txID string, code pb.TxValidationCode, err error) {
-		status <- txStatus{txID: txID, code: code, err: err}
-	})
-
-	return status, nil
-}
-
-func asBytes(args []string) [][]byte {
-	bytes := make([][]byte, len(args))
-	for i, arg := range args {
-		bytes[i] = []byte(arg)
-	}
-	return bytes
-}
-
-func asString(peers []apifabclient.Peer) string {
-	str := "["
-	for i, peer := range peers {
-		if peer.Name() != "" {
-			str += peer.Name()
-		} else {
-			str += peer.URL()
-		}
-		if i+1 < len(peers) {
-			str += ","
-		}
-	}
-	str += "]"
-	return str
 }

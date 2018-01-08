@@ -9,6 +9,8 @@ package main
 import (
 	"os"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/logging"
+	"github.com/hyperledger/fabric-sdk-go/pkg/logging/deflogger"
 	chaincode "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode"
 	channel "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/channel"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -18,6 +20,8 @@ import (
 )
 
 func newFabricCLICmd() *cobra.Command {
+	logging.InitLogger(deflogger.LoggerProvider())
+
 	mainCmd := &cobra.Command{
 		Use: "fabric-cli",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -36,6 +40,7 @@ func newFabricCLICmd() *cobra.Command {
 	cliconfig.InitOrdererTLSCertificate(flags)
 	cliconfig.InitPrintFormat(flags)
 	cliconfig.InitWriter(flags)
+	cliconfig.InitBase64(flags)
 	cliconfig.InitOrgIDs(flags)
 
 	mainCmd.AddCommand(chaincode.Cmd())

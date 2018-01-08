@@ -9,7 +9,7 @@ package query
 import (
 	"fmt"
 
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -47,7 +47,7 @@ func getQueryInstalledCmd() *cobra.Command {
 }
 
 type queryInstalledAction struct {
-	common.Action
+	action.Action
 }
 
 func newqueryInstalledAction(flags *pflag.FlagSet) (*queryInstalledAction, error) {
@@ -56,23 +56,23 @@ func newqueryInstalledAction(flags *pflag.FlagSet) (*queryInstalledAction, error
 	return action, err
 }
 
-func (action *queryInstalledAction) run() error {
-	user, err := action.OrgAdminUser(action.OrgID())
+func (a *queryInstalledAction) run() error {
+	user, err := a.OrgAdminUser(a.OrgID())
 	if err != nil {
 		return err
 	}
 
-	client, err := action.ClientForUser(action.OrgID(), user)
+	client, err := a.ClientForUser(a.OrgID(), user)
 	if err != nil {
 		return err
 	}
 
-	response, err := client.QueryInstalledChaincodes(action.Peer())
+	response, err := client.QueryInstalledChaincodes(a.Peer())
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Chaincodes for peer [%s]\n", action.Peer().URL())
-	action.Printer().PrintChaincodes(response.Chaincodes)
+	fmt.Printf("Chaincodes for peer [%s]\n", a.Peer().URL())
+	a.Printer().PrintChaincodes(response.Chaincodes)
 	return nil
 }

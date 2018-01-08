@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	resmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/resmgmtclient"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	channel "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/channel"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -47,7 +47,7 @@ func getChannelJoinCmd() *cobra.Command {
 }
 
 type channelJoinAction struct {
-	common.Action
+	action.Action
 }
 
 func newChannelJoinAction(flags *pflag.FlagSet) (*channelJoinAction, error) {
@@ -62,15 +62,15 @@ func newChannelJoinAction(flags *pflag.FlagSet) (*channelJoinAction, error) {
 	return action, nil
 }
 
-func (action *channelJoinAction) invoke() error {
+func (a *channelJoinAction) invoke() error {
 	fmt.Printf("Attempting to join channel: %s\n", cliconfig.Config().ChannelID())
 
-	for orgID, peers := range action.PeersByOrg() {
+	for orgID, peers := range a.PeersByOrg() {
 		fmt.Printf("Joining channel %s on org[%s] peers:\n", cliconfig.Config().ChaincodeID(), orgID)
 		for _, peer := range peers {
 			fmt.Printf("-- %s\n", peer.URL())
 		}
-		err := action.joinChannel(orgID, peers)
+		err := a.joinChannel(orgID, peers)
 		if err != nil {
 			return err
 		}
@@ -78,34 +78,20 @@ func (action *channelJoinAction) invoke() error {
 	return nil
 }
 
-func (action *channelJoinAction) joinChannel(orgID string, peers []apifabclient.Peer) error {
+func (a *channelJoinAction) joinChannel(orgID string, peers []apifabclient.Peer) error {
 	cliconfig.Config().Logger().Debugf("Joining channel [%s]...\n", cliconfig.Config().ChannelID())
 
-	channelClient, err := action.OrgAdminChannelClient(orgID)
-	if err != nil {
-		return errors.Errorf("Error getting admin channel client: %v", err)
-	}
-
-	// FIXME: Remove this when SDK includes a SystemChannelClient
-	channelContext := channelClient.(*channel.Channel).ClientContext()
-	txnID, err := channelContext.NewTxnID()
+	resMgmtClient, err := a.ResourceMgmtClientForOrg(orgID)
 	if err != nil {
 		return err
 	}
 
-	genesisBlock, err := channelClient.GenesisBlock(&apifabclient.GenesisBlockRequest{TxnID: txnID})
-	if err != nil {
-		return errors.Errorf("Error getting genesis block: %v", err)
+	opts := resmgmt.JoinChannelOpts{
+		Targets:      peers,
+		TargetFilter: nil,
 	}
 
-	ctx := channelClient.(*channel.Channel).ClientContext()
-	cliconfig.Config().Logger().Errorf("*****Channel client context: Name [%s], MSPID [%s]\n", ctx.UserContext().Name(), ctx.UserContext().MspID())
-
-	if err = channelClient.JoinChannel(&apifabclient.JoinChannelRequest{
-		Targets:      peers,
-		GenesisBlock: genesisBlock,
-		TxnID:        txnID,
-	}); err != nil {
+	if err := resMgmtClient.JoinChannelWithOpts(cliconfig.Config().ChannelID(), opts); err != nil {
 		return errors.Errorf("Could not join channel: %v", err)
 	}
 
