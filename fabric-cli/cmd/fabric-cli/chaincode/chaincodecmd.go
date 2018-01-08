@@ -29,6 +29,7 @@ func Cmd() *cobra.Command {
 	chaincodeCmd.AddCommand(getInvokeCmd())
 	chaincodeCmd.AddCommand(getQueryCmd())
 	chaincodeCmd.AddCommand(getGetInfoCmd())
+	chaincodeCmd.AddCommand(getUpgradeCmd())
 
 	return chaincodeCmd
 }

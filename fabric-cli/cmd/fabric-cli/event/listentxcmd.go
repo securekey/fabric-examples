@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -50,7 +50,7 @@ func getListenTXCmd() *cobra.Command {
 }
 
 type listentxAction struct {
-	common.Action
+	action.Action
 	inputEvent
 }
 
@@ -60,10 +60,10 @@ func newListenTXAction(flags *pflag.FlagSet) (*listentxAction, error) {
 	return action, err
 }
 
-func (action *listentxAction) invoke() error {
+func (a *listentxAction) invoke() error {
 	done := make(chan bool)
 
-	eventHub, err := action.EventHub()
+	eventHub, err := a.EventHub()
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (action *listentxAction) invoke() error {
 		done <- true
 	})
 
-	action.WaitForEnter()
+	a.WaitForEnter()
 
 	fmt.Printf("Unregistering TX event for TxID [%s]\n", cliconfig.Config().TxID())
 	eventHub.UnregisterTxEvent(txnID)

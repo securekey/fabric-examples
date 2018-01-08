@@ -12,9 +12,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -57,7 +57,7 @@ func getGetInfoCmd() *cobra.Command {
 }
 
 type getInfoAction struct {
-	common.Action
+	action.Action
 }
 
 func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
