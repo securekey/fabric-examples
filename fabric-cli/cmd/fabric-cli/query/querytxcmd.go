@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -50,7 +50,7 @@ func getQueryTXCmd() *cobra.Command {
 }
 
 type queryTXAction struct {
-	common.Action
+	action.Action
 }
 
 func newQueryTXAction(flags *pflag.FlagSet) (*queryTXAction, error) {
@@ -60,8 +60,8 @@ func newQueryTXAction(flags *pflag.FlagSet) (*queryTXAction, error) {
 	return action, err
 }
 
-func (action *queryTXAction) run() error {
-	channelClient, err := action.AdminChannelClient()
+func (a *queryTXAction) run() error {
+	channelClient, err := a.AdminChannelClient()
 	if err != nil {
 		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
@@ -72,7 +72,7 @@ func (action *queryTXAction) run() error {
 	}
 
 	fmt.Printf("Transaction %s in channel %s\n", cliconfig.Config().TxID(), cliconfig.Config().ChannelID())
-	action.Printer().PrintProcessedTransaction(tx)
+	a.Printer().PrintProcessedTransaction(tx)
 
 	return nil
 }

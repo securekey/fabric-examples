@@ -79,7 +79,7 @@ type Formatter interface {
 	// ItemEnd ends an array item
 	ItemEnd()
 
-	// ItemValue outputs a simple array item
+	// ItemValue outputs a single array item
 	ItemValue(element string, index interface{}, value interface{})
 
 	// Value outputs a value
@@ -89,14 +89,26 @@ type Formatter interface {
 	Print(frmt string, vars ...interface{})
 }
 
+// FormatterOpts contains options for the formatter
+type FormatterOpts struct {
+	// Base64Encode indicates whether binary values are to be encoded in base 64
+	Base64Encode bool
+}
+
 // NewFormatter returns a new Formatter given the format and writer type. nil is returned
 // if no formatter exists for the given type
 func NewFormatter(format OutputFormat, writerType WriterType) Formatter {
+	return NewFormatterWithOpts(format, writerType, &FormatterOpts{})
+}
+
+// NewFormatterWithOpts returns a new Formatter given the format and writer type. nil is returned
+// if no formatter exists for the given type
+func NewFormatterWithOpts(format OutputFormat, writerType WriterType, opts *FormatterOpts) Formatter {
 	switch format {
 	case JSON:
 		return &jsonFormatter{formatter: formatter{writer: NewWriter(writerType)}}
 	case DISPLAY:
-		return &displayFormatter{formatter: formatter{writer: NewWriter(writerType)}}
+		return &displayFormatter{formatter: formatter{writer: NewWriter(writerType)}, base64Encode: opts.Base64Encode}
 	default:
 		return nil
 	}
@@ -112,7 +124,8 @@ func (f *formatter) write(format string, a ...interface{}) error {
 
 type displayFormatter struct {
 	formatter
-	indent int
+	indent       int
+	base64Encode bool
 }
 
 func (p *displayFormatter) Print(frmt string, vars ...interface{}) {
@@ -122,7 +135,7 @@ func (p *displayFormatter) Print(frmt string, vars ...interface{}) {
 
 func (p *displayFormatter) Field(field string, value interface{}) {
 	if value != nil {
-		p.write("%s%s: %v\n", p.prefix(), field, value)
+		p.write("%s%s: %v\n", p.prefix(), field, p.encodeValue(value))
 	} else {
 		p.write("%s%s:\n", p.prefix(), field)
 	}
@@ -164,12 +177,12 @@ func (p *displayFormatter) ItemEnd() {
 
 func (p *displayFormatter) ItemValue(element string, index interface{}, value interface{}) {
 	if element != "" {
-		p.write("%s%s[%v]: %v\n", p.prefix(), element, index, value)
+		p.write("%s%s[%v]: %v\n", p.prefix(), element, index, p.encodeValue(value))
 	}
 }
 
 func (p *displayFormatter) Value(value interface{}) {
-	p.write("%s%v", p.prefix(), value)
+	p.write("%s%v", p.prefix(), p.encodeValue(value))
 }
 
 func (p *displayFormatter) PrintHeader() {
@@ -188,6 +201,18 @@ func (p *displayFormatter) prefix() string {
 	return s
 }
 
+func (p *displayFormatter) encodeValue(value interface{}) interface{} {
+	switch value.(type) {
+	case []byte:
+		if p.base64Encode {
+			return Base64URLEncode(value.([]byte))
+		}
+		return string(value.([]byte))
+	default:
+		return value
+	}
+}
+
 type jsonFormatter struct {
 	formatter
 	commaRequired bool
@@ -203,7 +228,7 @@ func (p *jsonFormatter) Field(field string, value interface{}) {
 	}
 
 	if value != nil {
-		p.write("\"%s\":\"%v\"", field, value)
+		p.write("\"%s\":\"%v\"", field, p.encodeValue(value))
 	} else {
 		p.write("\"%s\":\"null\"", field)
 	}
@@ -261,14 +286,14 @@ func (p *jsonFormatter) ItemValue(element string, index interface{}, value inter
 	if p.commaRequired {
 		p.write(",")
 	}
-	p.write("\"%v\"", value)
+	p.write("\"%v\"", p.encodeValue(value))
 }
 
 func (p *jsonFormatter) Value(value interface{}) {
 	if p.commaRequired {
 		p.write(",")
 	}
-	p.write("\"%v\"", value)
+	p.write("\"%v\"", p.encodeValue(value))
 }
 
 func (p *jsonFormatter) PrintHeader() {
@@ -280,4 +305,13 @@ func (p *jsonFormatter) PrintFooter() {
 	p.ElementEnd()
 	p.write("\n")
 	p.commaRequired = false
+}
+
+func (p *jsonFormatter) encodeValue(value interface{}) interface{} {
+	switch value.(type) {
+	case []byte:
+		return Base64URLEncode(value.([]byte))
+	default:
+		return value
+	}
 }

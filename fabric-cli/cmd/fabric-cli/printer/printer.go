@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package printer
 
+import "fmt"
+
 const (
 	indentSize = 3
 )
@@ -19,8 +21,17 @@ func newPrinter(format OutputFormat, writerType WriterType) *printer {
 	return &printer{Formatter: NewFormatter(format, writerType)}
 }
 
+// newPrinterWithOpts returns a new Printer of the given OutputFormat and WriterType
+func newPrinterWithOpts(format OutputFormat, writerType WriterType, opts *FormatterOpts) *printer {
+	return &printer{Formatter: NewFormatterWithOpts(format, writerType, opts)}
+}
+
 // Print prints a formatted string
 func (p *printer) Print(frmt string, vars ...interface{}) {
+	if p.Formatter == nil {
+		fmt.Printf(frmt, vars)
+		return
+	}
 	p.Formatter.Print(frmt, vars...)
 }
 

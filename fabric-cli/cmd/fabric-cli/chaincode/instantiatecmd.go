@@ -9,15 +9,16 @@ package chaincode
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
+	resmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/resmgmtclient"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	admin "github.com/hyperledger/fabric-sdk-go/pkg/fabric-txn/admin"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
-	cauthdslparser "github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/common/cauthdsl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -61,11 +62,13 @@ func getInstantiateCmd() *cobra.Command {
 	cliconfig.InitChaincodeVersion(flags)
 	cliconfig.InitArgs(flags)
 	cliconfig.InitChaincodePolicy(flags)
+	cliconfig.InitCollectionConfigFile(flags)
+	cliconfig.InitTimeout(flags)
 	return instantiateCmd
 }
 
 type instantiateAction struct {
-	common.Action
+	action.Action
 }
 
 func newInstantiateAction(flags *pflag.FlagSet) (*instantiateAction, error) {
@@ -77,35 +80,53 @@ func newInstantiateAction(flags *pflag.FlagSet) (*instantiateAction, error) {
 	return action, err
 }
 
-func (action *instantiateAction) invoke() error {
+func (a *instantiateAction) invoke() error {
 	argBytes := []byte(cliconfig.Config().Args())
-	args := &common.ArgStruct{}
+	args := &action.ArgStruct{}
 
 	if err := json.Unmarshal(argBytes, args); err != nil {
 		return errors.Errorf("Error unmarshalling JSON arg string: %v", err)
 	}
 
-	channelClient, err := action.AdminChannelClient()
+	resMgmtClient, err := a.ResourceMgmtClient()
 	if err != nil {
-		return errors.Errorf("Error getting admin channel client: %v", err)
+		return err
 	}
 
 	cliconfig.Config().Logger().Infof("Sending instantiate %s ...\n", cliconfig.Config().ChaincodeID())
 
-	chaincodePolicy, err := action.newChaincodePolicy()
+	chaincodePolicy, err := a.newChaincodePolicy()
 	if err != nil {
 		return err
 	}
 
-	eventHub, err := action.EventHub()
-	if err != nil {
-		return err
+	// Private Data Collection Configuration
+	// - see fixtures/config/pvtdatacollection.json for sample config file
+	var collConfig []*fabricCommon.CollectionConfig
+	collConfigFile := cliconfig.Config().CollectionConfigFile()
+	if collConfigFile != "" {
+		collConfig, err = getCollectionConfigFromFile(cliconfig.Config().CollectionConfigFile())
+		if err != nil {
+			return errors.Wrapf(err, "error getting private data collection configuration from file [%s]", cliconfig.Config().CollectionConfigFile())
+		}
 	}
 
-	err = admin.SendInstantiateCC(
-		channelClient, cliconfig.Config().ChaincodeID(), asBytes(args.Args), cliconfig.Config().ChaincodePath(), cliconfig.Config().ChaincodeVersion(),
-		chaincodePolicy, action.ProposalProcessors(), eventHub)
-	if err != nil {
+	req := resmgmt.InstantiateCCRequest{
+		Name:       cliconfig.Config().ChaincodeID(),
+		Path:       cliconfig.Config().ChaincodePath(),
+		Version:    cliconfig.Config().ChaincodeVersion(),
+		Args:       utils.AsBytes(args.Args),
+		Policy:     chaincodePolicy,
+		CollConfig: collConfig,
+	}
+
+	opts := resmgmt.InstantiateCCOpts{
+		Targets:      a.Peers(),
+		TargetFilter: nil,
+		Timeout:      cliconfig.Config().Timeout(),
+	}
+
+	if err := resMgmtClient.InstantiateCCWithOpts(cliconfig.Config().ChannelID(), req, opts); err != nil {
 		if strings.Contains(err.Error(), "chaincode exists "+cliconfig.Config().ChaincodeID()) {
 			// Ignore
 			cliconfig.Config().Logger().Infof("Chaincode %s already instantiated.", cliconfig.Config().ChaincodeID())
@@ -120,7 +141,7 @@ func (action *instantiateAction) invoke() error {
 	return nil
 }
 
-func (action *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePolicyEnvelope, error) {
+func (a *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePolicyEnvelope, error) {
 	if cliconfig.Config().ChaincodePolicy() != "" {
 		// Create a signature policy from the policy expression passed in
 		return newChaincodePolicy(cliconfig.Config().ChaincodePolicy())
@@ -139,9 +160,55 @@ func (action *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePo
 }
 
 func newChaincodePolicy(policyString string) (*fabricCommon.SignaturePolicyEnvelope, error) {
-	ccPolicy, err := cauthdslparser.FromString(policyString)
+	ccPolicy, err := cauthdsl.FromString(policyString)
 	if err != nil {
 		return nil, errors.Errorf("invalid chaincode policy [%s]: %s", policyString, err)
 	}
 	return ccPolicy, nil
+}
+
+type collectionConfigJSON struct {
+	Name              string `json:"name"`
+	Policy            string `json:"policy"`
+	RequiredPeerCount int32  `json:"requiredPeerCount"`
+	MaxPeerCount      int32  `json:"maxPeerCount"`
+}
+
+func getCollectionConfigFromFile(ccFile string) ([]*fabricCommon.CollectionConfig, error) {
+	fileBytes, err := ioutil.ReadFile(ccFile)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not read file [%s]", ccFile)
+	}
+	cconf := &[]collectionConfigJSON{}
+	if err = json.Unmarshal(fileBytes, cconf); err != nil {
+		return nil, errors.Wrapf(err, "error parsing collection configuration in file [%s]", ccFile)
+	}
+	return getCollectionConfig(*cconf)
+}
+
+func getCollectionConfig(cconf []collectionConfigJSON) ([]*fabricCommon.CollectionConfig, error) {
+	ccarray := make([]*fabricCommon.CollectionConfig, 0, len(cconf))
+	for _, cconfitem := range cconf {
+		p, err := cauthdsl.FromString(cconfitem.Policy)
+		if err != nil {
+			return nil, errors.WithMessage(err, fmt.Sprintf("invalid policy %s", cconfitem.Policy))
+		}
+		cpc := &fabricCommon.CollectionPolicyConfig{
+			Payload: &fabricCommon.CollectionPolicyConfig_SignaturePolicy{
+				SignaturePolicy: p,
+			},
+		}
+		cc := &fabricCommon.CollectionConfig{
+			Payload: &fabricCommon.CollectionConfig_StaticCollectionConfig{
+				StaticCollectionConfig: &fabricCommon.StaticCollectionConfig{
+					Name:              cconfitem.Name,
+					MemberOrgsPolicy:  cpc,
+					RequiredPeerCount: cconfitem.RequiredPeerCount,
+					MaximumPeerCount:  cconfitem.MaxPeerCount,
+				},
+			},
+		}
+		ccarray = append(ccarray, cc)
+	}
+	return ccarray, nil
 }

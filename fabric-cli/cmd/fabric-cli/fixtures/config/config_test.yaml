@@ -41,23 +41,23 @@ client:
   organization: Org1
 
   logging:
-    level: info
+    level: error
 
 
   # Global configuration for peer, event service and orderer timeouts
   peer:
     timeout:
-      connection: 3s
+      connection: 10s
       queryResponse: 20s
       executeTxResponse: 30s
   eventService:
     timeout:
-      connection: 3s
-      registrationResponse: 3s
+      connection: 10s
+      registrationResponse: 20s
   orderer:
     timeout:
-      connection: 3s
-      response: 5s
+      connection: 10s
+      response: 30s
 
   # Needed to load users crypto keys and certs.
   cryptoconfig:
@@ -254,7 +254,7 @@ peers:
 #
 certificateAuthorities:
   ca-org1:
-    url: http://localhost:7054
+    url: https://localhost:7054
     # the properties specified under this object are passed to the 'http' client verbatim when
     # making the request to the Fabric-CA server
     httpOptions:
@@ -275,7 +275,7 @@ certificateAuthorities:
     # [Optional] The optional name of the CA.
     caName: ca-org1
   ca-org2:
-    url: http://localhost:8054
+    url: https://localhost:8054
     # the properties specified under this object are passed to the 'http' client verbatim when
     # making the request to the Fabric-CA server
     httpOptions:

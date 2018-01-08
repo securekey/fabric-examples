@@ -16,17 +16,15 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
+	ledgerUtil "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/util"
 	fabriccmn "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/msp"
 	ab "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/orderer"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
-	"github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/common/configtx"
-	"github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/core/common/ccprovider"
-	"github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
-	ledgerUtil "github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/core/ledger/util"
-	fabricMsp "github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/msp"
-	fabricUtils "github.com/securekey/fabric-examples/fabric-cli/internal/github.com/hyperledger/fabric/protos/utils"
+	utils "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/utils"
 )
 
 const (
@@ -100,7 +98,7 @@ type Printer interface {
 	PrintChaincodeData(ccdata *ccprovider.ChaincodeData)
 
 	// PrintTxProposalResponses outputs the proposal responses
-	PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse)
+	PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse, payloadOnly bool)
 
 	// PrintResponses outputs responses
 	PrintResponses(response []*pb.Response)
@@ -124,6 +122,13 @@ func NewBlockPrinter(format OutputFormat, writerType WriterType) *BlockPrinter {
 	}
 }
 
+// NewBlockPrinterWithOpts returns a new Printer of the given OutputFormat and WriterType
+func NewBlockPrinterWithOpts(format OutputFormat, writerType WriterType, opts *FormatterOpts) *BlockPrinter {
+	return &BlockPrinter{
+		printer: *newPrinterWithOpts(format, writerType, opts),
+	}
+}
+
 // PrintBlockchainInfo prints BlockchainInfo
 func (p *BlockPrinter) PrintBlockchainInfo(info *fabriccmn.BlockchainInfo) {
 	if p.Formatter == nil {
@@ -132,7 +137,6 @@ func (p *BlockPrinter) PrintBlockchainInfo(info *fabriccmn.BlockchainInfo) {
 	}
 
 	p.PrintHeader()
-	// p.Print("Block Info for chain %s", Config().ChannelID())
 	p.Field("Height", info.Height)
 	p.Field("CurrentBlockHash", Base64URLEncode(info.CurrentBlockHash))
 	p.Field("PreviousBlockHash", Base64URLEncode(info.PreviousBlockHash))
@@ -162,7 +166,7 @@ func (p *BlockPrinter) PrintBlock(block *fabriccmn.Block) {
 	numEnvelopes := len(block.Data.Data)
 	for i := 0; i < numEnvelopes; i++ {
 		p.Item("Envelope", i)
-		p.PrintEnvelope(fabricUtils.ExtractEnvelopeOrPanic(block, i))
+		p.PrintEnvelope(utils.ExtractEnvelopeOrPanic(block, i))
 		p.ItemEnd()
 	}
 	p.ArrayEnd()
@@ -226,7 +230,7 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 
 	p.PrintHeader()
 
-	p.Field("Id", Base64URLEncode(ccData.Id))
+	p.Field("Id", ccData.Id)
 	p.Field("Name", ccData.Name)
 	p.Field("Version", ccData.Version)
 	p.Field("Escc", ccData.Escc)
@@ -254,7 +258,7 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 }
 
 // PrintTxProposalResponses prints the given transaction proposal responses
-func (p *BlockPrinter) PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse) {
+func (p *BlockPrinter) PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse, payloadOnly bool) {
 	if p.Formatter == nil {
 		for i, response := range responses {
 			fmt.Printf("Response[%d]: %v\n", i, response)
@@ -266,7 +270,7 @@ func (p *BlockPrinter) PrintTxProposalResponses(responses []*apitxn.TransactionP
 	p.Array("")
 	for i, response := range responses {
 		p.Item("Response", i)
-		p.PrintTxProposalResponse(response)
+		p.PrintTxProposalResponse(response, payloadOnly)
 		p.ItemEnd()
 	}
 	p.ArrayEnd()
@@ -285,18 +289,28 @@ func (p *BlockPrinter) PrintChaincodeEvent(event *apifabclient.ChaincodeEvent) {
 	p.Field("EventName", event.EventName)
 	p.Field("ChannelID", event.ChannelID)
 	p.Field("TxID", event.TxID)
-	p.Field("Payload", Base64URLEncode(event.Payload))
+	p.Field("Payload", event.Payload)
 	p.PrintFooter()
 }
 
 // PrintTxProposalResponse prints the TransactionProposalResponse
-func (p *BlockPrinter) PrintTxProposalResponse(response *apitxn.TransactionProposalResponse) {
-	p.Field("Endorser", response.Endorser)
-	p.Field("Err", response.Err)
-	p.Field("Status", response.Status)
-	p.Element("ProposalResponse")
-	p.PrintProposalResponse(response.ProposalResponse)
-	p.ElementEnd()
+func (p *BlockPrinter) PrintTxProposalResponse(response *apitxn.TransactionProposalResponse, payloadOnly bool) {
+	if payloadOnly {
+		if response.Err != nil {
+			p.Field("Err", response.Err)
+		} else if response.ProposalResponse == nil || response.ProposalResponse.Response == nil {
+			p.Field("Response", nil)
+		} else {
+			p.Field("Payload", response.ProposalResponse.Response.Payload)
+		}
+	} else {
+		p.Field("Endorser", response.Endorser)
+		p.Field("Err", response.Err)
+		p.Field("Status", response.Status)
+		p.Element("ProposalResponse")
+		p.PrintProposalResponse(response.ProposalResponse)
+		p.ElementEnd()
+	}
 }
 
 // PrintProposalResponse prints a ProposalResponse
@@ -307,7 +321,7 @@ func (p *BlockPrinter) PrintProposalResponse(response *pb.ProposalResponse) {
 	p.Element("Response")
 	p.PrintResponse(response.Response)
 	p.ElementEnd()
-	p.Field("Payload", string(response.Payload))
+	p.Field("Payload", response.Payload)
 	p.Element("Endorsement")
 	p.PrintEndorsement(response.Endorsement)
 	p.ElementEnd()
@@ -337,7 +351,7 @@ func (p *BlockPrinter) PrintResponses(responses []*pb.Response) {
 func (p *BlockPrinter) PrintResponse(response *pb.Response) {
 	p.Field("Message", response.Message)
 	p.Field("Status", response.Status)
-	p.Field("Payload", string(response.Payload))
+	p.Field("Payload", response.Payload)
 }
 
 // PrintCDSData prints the chaincode deployment spec data (CDSData)
@@ -348,9 +362,9 @@ func (p *BlockPrinter) PrintCDSData(cdsData *ccprovider.CDSData) {
 
 // PrintEnvelope prints the given Envelope
 func (p *BlockPrinter) PrintEnvelope(envelope *fabriccmn.Envelope) {
-	p.Field("Signature", Base64URLEncode(envelope.Signature))
+	p.Field("Signature", envelope.Signature)
 
-	payload := fabricUtils.ExtractPayloadOrPanic(envelope)
+	payload := utils.ExtractPayloadOrPanic(envelope)
 	p.Element("Payload")
 	p.PrintPayload(payload)
 	p.ElementEnd()
@@ -360,7 +374,7 @@ func (p *BlockPrinter) PrintEnvelope(envelope *fabriccmn.Envelope) {
 func (p *BlockPrinter) PrintPayload(payload *fabriccmn.Payload) {
 	p.Element("Header")
 
-	chdr, err := fabricUtils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
+	chdr, err := utils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
 	if err != nil {
 		panic(err)
 	}
@@ -369,7 +383,7 @@ func (p *BlockPrinter) PrintPayload(payload *fabriccmn.Payload) {
 	p.PrintChannelHeader(chdr)
 	p.ElementEnd()
 
-	sigHeader, err := fabricUtils.GetSignatureHeader(payload.Header.SignatureHeader)
+	sigHeader, err := utils.GetSignatureHeader(payload.Header.SignatureHeader)
 	if err != nil {
 		panic(err)
 	}
@@ -433,8 +447,8 @@ func (p *BlockPrinter) PrintChaincodeInfo(ccInfo *pb.ChaincodeInfo) {
 
 // PrintSignatureHeader prints a SignatureHeader
 func (p *BlockPrinter) PrintSignatureHeader(sigHdr *fabriccmn.SignatureHeader) {
-	p.Field("Nonce", Base64URLEncode(sigHdr.Nonce))
-	p.Field("Creator", Base64URLEncode(sigHdr.Creator))
+	p.Field("Nonce", sigHdr.Nonce)
+	p.Field("Creator", sigHdr.Creator)
 }
 
 // PrintData prints the block of data formatted according to the given HeaderType
@@ -454,7 +468,7 @@ func (p *BlockPrinter) PrintData(headerType fabriccmn.HeaderType, data []byte) {
 		p.Print("Config Update Envelope:")
 		p.PrintConfigUpdateEnvelope(envelope)
 	} else if headerType == fabriccmn.HeaderType_ENDORSER_TRANSACTION {
-		tx, err := fabricUtils.GetTransaction(data)
+		tx, err := utils.GetTransaction(data)
 		if err != nil {
 			panic(errors.Errorf("Bad envelope: %v", err))
 		}
@@ -485,8 +499,8 @@ func (p *BlockPrinter) PrintConfigUpdateEnvelope(envelope *fabriccmn.ConfigUpdat
 	}
 	p.ArrayEnd()
 
-	configUpdate, err := configtx.UnmarshalConfigUpdate(envelope.ConfigUpdate)
-	if err != nil {
+	configUpdate := &fabriccmn.ConfigUpdate{}
+	if err := proto.Unmarshal(envelope.ConfigUpdate, configUpdate); err != nil {
 		panic(err)
 	}
 
@@ -510,7 +524,7 @@ func (p *BlockPrinter) PrintTransaction(tx *pb.Transaction) {
 func (p *BlockPrinter) PrintTXAction(action *pb.TransactionAction) {
 	p.Element("Header")
 
-	sigHeader, err := fabricUtils.GetSignatureHeader(action.Header)
+	sigHeader, err := utils.GetSignatureHeader(action.Header)
 	if err != nil {
 		panic(err)
 	}
@@ -520,7 +534,7 @@ func (p *BlockPrinter) PrintTXAction(action *pb.TransactionAction) {
 
 	p.Element("Payload")
 
-	chaPayload, err := fabricUtils.GetChaincodeActionPayload(action.Payload)
+	chaPayload, err := utils.GetChaincodeActionPayload(action.Payload)
 	if err != nil {
 		panic(err)
 	}
@@ -772,14 +786,14 @@ func (p *BlockPrinter) PrintVersion(version *kvrwset.Version) {
 func (p *BlockPrinter) PrintWrite(w *kvrwset.KVWrite) {
 	p.Field("Key", w.Key)
 	p.Field("IsDelete", w.IsDelete)
-	p.Field("Value", string(w.Value))
+	p.Field("Value", w.Value)
 }
 
 // PrintChaincodeResponse prints a response
 func (p *BlockPrinter) PrintChaincodeResponse(response *pb.Response) {
 	p.Field("Message", response.Message)
 	p.Field("Status", response.Status)
-	p.Field("Payload", string(response.Payload))
+	p.Field("Payload", response.Payload)
 }
 
 // PrintChaincodeEventFromBlock prints a ChaincodeEvent
@@ -787,13 +801,13 @@ func (p *BlockPrinter) PrintChaincodeEventFromBlock(chaincodeEvent *pb.Chaincode
 	p.Field("ChaincodeId", chaincodeEvent.ChaincodeId)
 	p.Field("EventName", chaincodeEvent.EventName)
 	p.Field("TxID", chaincodeEvent.TxId)
-	p.Field("Payload", string(chaincodeEvent.Payload))
+	p.Field("Payload", chaincodeEvent.Payload)
 }
 
 // PrintEndorsement prints an Endorsement
 func (p *BlockPrinter) PrintEndorsement(endorsement *pb.Endorsement) {
-	p.Field("Endorser", Base64URLEncode(endorsement.Endorser))
-	p.Field("Signature", Base64URLEncode(endorsement.Signature))
+	p.Field("Endorser", endorsement.Endorser)
+	p.Field("Signature", endorsement.Signature)
 }
 
 // PrintConfig prints a Config
@@ -904,7 +918,7 @@ func (p *BlockPrinter) PrintMSPPrincipal(principal *msp.MSPPrincipal) {
 		p.Field("Role", mspRole.Role)
 		p.Field("MspIdentifier", mspRole.MspIdentifier)
 	case msp.MSPPrincipal_IDENTITY:
-		p.Value(Base64URLEncode(principal.Principal))
+		p.Value(principal.Principal)
 	case msp.MSPPrincipal_ORGANIZATION_UNIT:
 		// Principal contains the OrganizationUnit
 		unit := &msp.OrganizationUnit{}
@@ -912,7 +926,7 @@ func (p *BlockPrinter) PrintMSPPrincipal(principal *msp.MSPPrincipal) {
 
 		p.Field("MspIdentifier", unit.MspIdentifier)
 		p.Field("OrganizationalUnitIdentifier", unit.OrganizationalUnitIdentifier)
-		p.Field("CertifiersIdentifier", Base64URLEncode(unit.CertifiersIdentifier))
+		p.Field("CertifiersIdentifier", unit.CertifiersIdentifier)
 	default:
 		p.Value("unknown PrincipalClassification")
 	}
@@ -1059,10 +1073,20 @@ func (p *BlockPrinter) PrintBatchSize(batchSize *ab.BatchSize) {
 	p.Field("PreferredMaxBytes", batchSize.PreferredMaxBytes)
 }
 
+// ProviderType indicates the type of an identity provider
+type ProviderType int
+
+// The ProviderType of a member relative to the member API
+const (
+	FABRIC ProviderType = iota // MSP is of FABRIC type
+	IDEMIX                     // MSP is of IDEMIX type
+	OTHER                      // MSP is of OTHER TYPE
+)
+
 // PrintMSPConfig prints a MSPConfig
 func (p *BlockPrinter) PrintMSPConfig(mspConfig *msp.MSPConfig) {
-	switch fabricMsp.ProviderType(mspConfig.Type) {
-	case fabricMsp.FABRIC:
+	switch ProviderType(mspConfig.Type) {
+	case FABRIC:
 		p.Print("Type: FABRIC")
 
 		config := &msp.FabricMSPConfig{}
@@ -1083,7 +1107,7 @@ func (p *BlockPrinter) PrintFabricMSPConfig(mspConfig *msp.FabricMSPConfig) {
 	p.Field("Name", mspConfig.Name)
 	p.Array("Admins")
 	for i, admCert := range mspConfig.Admins {
-		p.ItemValue("Admin Cert", i, Base64URLEncode(admCert))
+		p.ItemValue("Admin Cert", i, admCert)
 	}
 	p.ArrayEnd()
 }
@@ -1107,9 +1131,9 @@ func (p *BlockPrinter) PrintAnchorPeer(anchorPeer *pb.AnchorPeer) {
 
 // PrintConfigSignature prints ConfigSignature
 func (p *BlockPrinter) PrintConfigSignature(sig *fabriccmn.ConfigSignature) {
-	p.Field("Signature", Base64URLEncode(sig.Signature))
+	p.Field("Signature", sig.Signature)
 
-	sigHeader, err := fabricUtils.GetSignatureHeader(sig.SignatureHeader)
+	sigHeader, err := utils.GetSignatureHeader(sig.SignatureHeader)
 	if err != nil {
 		panic(err)
 	}
@@ -1142,7 +1166,7 @@ func (p *BlockPrinter) PrintBlockMetadata(blockMetaData *fabriccmn.BlockMetadata
 func (p *BlockPrinter) PrintSignaturesMetadata(metadata *fabriccmn.Metadata) {
 	p.Array("Signatures")
 	for i, metadataSignature := range metadata.Signatures {
-		shdr, err := fabricUtils.GetSignatureHeader(metadataSignature.SignatureHeader)
+		shdr, err := utils.GetSignatureHeader(metadataSignature.SignatureHeader)
 		if err != nil {
 			panic(errors.Errorf("Failed unmarshalling meta data signature header. Error: %v", err))
 		}

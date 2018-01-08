@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
+	"github.com/hyperledger/fabric-sdk-go/api/apilogging"
 	"github.com/hyperledger/fabric-sdk-go/pkg/config"
 	"github.com/hyperledger/fabric-sdk-go/pkg/logging"
 	"github.com/spf13/pflag"
@@ -22,6 +23,12 @@ import (
 const (
 	loggerName    = "fabriccli"
 	userStatePath = "/tmp/enroll_user"
+
+	// StaticSelectionProvider indicates that a static selection provider is to be used for selecting peers for invoke/query commands
+	StaticSelectionProvider = "static"
+
+	// DynamicSelectionProvider indicates that a dynamic selection provider is to be used for selecting peers for invoke/query commands
+	DynamicSelectionProvider = "dynamic"
 )
 
 // Flags
@@ -76,6 +83,9 @@ const (
 	writerFlag        = "writer"
 	writerDescription = "The writer - stdout, stderr, log"
 
+	base64Flag        = "base64"
+	base64Description = "If true then binary values are encoded in base64 (only applies to 'display' format)"
+
 	certificateFileFlag    = "cacert"
 	certificateDescription = "The path of the ca-cert.pem file"
 	defaultCertificate     = ""
@@ -119,40 +129,76 @@ const (
 	chaincodePolicyDescription = "The chaincode policy, e.g. OR('Org1MSP.admin','Org2MSP.admin',AND('Org1MSP.member','Org2MSP.member'))"
 	defaultChaincodePolicy     = ""
 
+	collectionConfigFileFlag        = "collconfig"
+	collectionConfigFileDescription = "The path of the JSON file that contains the private data collection configuration for the chaincode"
+	defaultCollectionConfigFile     = ""
+
 	timeoutFlag        = "timeout"
 	timeoutDescription = "The timeout (in milliseconds) for the operation"
-	defaultTimeout     = "3000"
+	defaultTimeout     = "5000"
+
+	printPayloadOnlyFlag        = "payload"
+	printPayloadOnlyDescription = "If specified then only the payload from the transaction proposal response(s) will be output"
+	defaultPrintPayloadOnly     = "false"
+
+	concurrencyFlag        = "concurrency"
+	concurrencyDescription = "Specifies the number of concurrent requests sent on an invoke or a query chaincode request"
+	defaultConcurrency     = "1"
+
+	maxAttemptsFlag        = "attempts"
+	maxAttemptsDescription = "Specifies the maximum number of attempts to be made for a single chaincode invocation request. If >1 then retries will be attempted should transient errors occur."
+	defaultMaxAttempts     = "1"
+
+	resubmitDelayFlag        = "resubmitdelay"
+	resubmitDelayDescription = "The time (in milliseconds) to wait before resubmitting an invocation after a transient error"
+	defaultResubmitDelay     = "1000"
+
+	verboseFlag        = "verbose"
+	verboseDescription = "If specified then the transaction proposal responses will be output when iterations > 1, otherwise transaction proposal responses are only output when iterations = 1"
+	defaultVerbosity   = "false"
+
+	selectionProviderFlag        = "selectprovider"
+	selectionProviderDescription = "The peer selection provider for invoke/query commands. The two possible values are: (1) static - Selects all peers; (2) dynamic - Selects a minimal set of peers according to the endorsement policy for the chaincode."
+	defaultSelectionProvider     = StaticSelectionProvider
 )
 
 var opts *options
 var instance *CLIConfig
 
 type options struct {
-	certificate      string
-	user             string
-	password         string
-	loggingLevel     string
-	orgIDsStr        string
-	channelID        string
-	chaincodeID      string
-	chaincodePath    string
-	chaincodeVersion string
-	peerURL          string
-	ordererURL       string
-	iterations       int
-	sleepTime        int64
-	configFile       string
-	txFile           string
-	txID             string
-	printFormat      string
-	writer           string
-	args             string
-	chaincodeEvent   string
-	blockHash        string
-	blockNum         int
-	traverse         int
-	chaincodePolicy  string
-	timeout          int64
+	certificate          string
+	user                 string
+	password             string
+	loggingLevel         string
+	orgIDsStr            string
+	channelID            string
+	chaincodeID          string
+	chaincodePath        string
+	chaincodeVersion     string
+	peerURL              string
+	ordererURL           string
+	iterations           int
+	sleepTime            int64
+	configFile           string
+	txFile               string
+	txID                 string
+	printFormat          string
+	writer               string
+	base64               bool
+	args                 string
+	chaincodeEvent       string
+	blockHash            string
+	blockNum             int
+	traverse             int
+	chaincodePolicy      string
+	collectionConfigFile string
+	timeout              int64
+	printPayloadOnly     bool
+	concurrency          int
+	maxAttempts          int
+	resubmitDelay        int64
+	verbose              bool
+	selectionProvider    string
 }
 
 func init() {
@@ -164,6 +210,7 @@ func init() {
 		orgIDsStr:        defaultOrgIDs,
 		chaincodeVersion: defaultChaincodeVersion,
 		iterations:       1,
+		concurrency:      1,
 		args:             getEmptyArgs(),
 	}
 }
@@ -175,11 +222,7 @@ type CLIConfig struct {
 }
 
 // InitConfig initializes the configuration
-func InitConfig(flags *pflag.FlagSet) error {
-	// var configFile string
-	// defaultValue, description := getDefaultValueAndDescription(defaultConfigFile, configFileDescription, defaultConfigFile)
-	// flags.StringVar(&configFile, configFileFlag, defaultValue, description)
-
+func InitConfig() error {
 	instance = &CLIConfig{
 		logger: logging.NewLogger(loggerName),
 	}
@@ -351,7 +394,7 @@ func InitIterations(flags *pflag.FlagSet, defaultValueAndDescription ...string) 
 	defaultValue, description := getDefaultValueAndDescription(defaultIterations, iterationsDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
-		fmt.Printf("Invalid number: %s\n", defaultValue)
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
 		i = 1
 	}
 	flags.IntVar(&opts.iterations, iterationsFlag, i, description)
@@ -367,7 +410,7 @@ func InitSleepTime(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultSleepTime, sleepTimeDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
-		fmt.Printf("Invalid number: %s\n", defaultValue)
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
 		i = 1
 	}
 	flags.Int64Var(&opts.sleepTime, sleepFlag, int64(i), description)
@@ -383,7 +426,7 @@ func InitBlockNum(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultBlockNum, blockNumDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
-		fmt.Printf("Invalid number: %s\n", defaultValue)
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
 		i = 1
 	}
 	flags.IntVar(&opts.blockNum, blockNumFlag, i, description)
@@ -410,7 +453,7 @@ func InitTraverse(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultTraverse, traverseDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
-		fmt.Printf("Invalid number: %s\n", defaultValue)
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
 		i = 1
 	}
 	flags.IntVar(&opts.traverse, traverseFlag, i, description)
@@ -436,6 +479,17 @@ func (c *CLIConfig) Writer() string {
 func InitWriter(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription("stdout", writerDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.writer, writerFlag, defaultValue, description)
+}
+
+// Base64 indicates whether binary values are to be encoded in base64. (Only applies to 'display' format.)
+func (c *CLIConfig) Base64() bool {
+	return opts.base64
+}
+
+// InitBase64 initializes the base64 flag from the provided arguments
+func InitBase64(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription("false", writerDescription, defaultValueAndDescription...)
+	flags.BoolVar(&opts.base64, base64Flag, defaultValue == "true", description)
 }
 
 // OrdererTLSCertificate is the path of the orderer TLS certificate
@@ -493,6 +547,17 @@ func InitChaincodePolicy(flags *pflag.FlagSet, defaultValueAndDescription ...str
 	flags.StringVar(&opts.chaincodePolicy, chaincodePolicyFlag, defaultValue, description)
 }
 
+// CollectionConfigFile returns the path of the JSON file that contains the private data collection configuration for the chaincode to be instantiated/upgraded
+func (c *CLIConfig) CollectionConfigFile() string {
+	return opts.collectionConfigFile
+}
+
+// InitCollectionConfigFile initializes the collection config file from the provided arguments
+func InitCollectionConfigFile(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultCollectionConfigFile, collectionConfigFileDescription, defaultValueAndDescription...)
+	flags.StringVar(&opts.collectionConfigFile, collectionConfigFileFlag, defaultValue, description)
+}
+
 // Timeout returns the timeout (in milliseconds) for various operations
 func (c *CLIConfig) Timeout() time.Duration {
 	return time.Duration(opts.timeout) * time.Millisecond
@@ -503,10 +568,96 @@ func InitTimeout(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultTimeout, timeoutDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
-		fmt.Printf("Invalid number: %s\n", defaultValue)
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
 		i = 1000
 	}
 	flags.Int64Var(&opts.timeout, timeoutFlag, int64(i), description)
+}
+
+// PrintPayloadOnly indicates whether only the payload or the entire
+// transaction proposal response should be printed
+func (c *CLIConfig) PrintPayloadOnly() bool {
+	return opts.printPayloadOnly
+}
+
+// InitPrintPayloadOnly initializes the PrintPayloadOnly flag from the provided arguments
+func InitPrintPayloadOnly(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultPrintPayloadOnly, printPayloadOnlyDescription, defaultValueAndDescription...)
+	flags.BoolVar(&opts.printPayloadOnly, printPayloadOnlyFlag, defaultValue == "true", description)
+}
+
+// Concurrency returns the number of concurrent invocations/queries
+func (c *CLIConfig) Concurrency() uint16 {
+	return uint16(opts.concurrency)
+}
+
+// InitConcurrency initializes the 'concurrency' flag from the provided arguments
+func InitConcurrency(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultConcurrency, traverseDescription, defaultValueAndDescription...)
+	i, err := strconv.Atoi(defaultValue)
+	if err != nil {
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
+		i = 1
+	}
+	flags.IntVar(&opts.concurrency, concurrencyFlag, i, description)
+}
+
+// MaxAttempts returns the maximum number of invocations attempts to be made
+// for a single chaincode invocation request. If >1 then a retry will be attempted
+// if a transient failure occurs.
+func (c *CLIConfig) MaxAttempts() int {
+	return opts.maxAttempts
+}
+
+// InitMaxAttempts initializes the 'maxAttempts' flag from the provided arguments
+func InitMaxAttempts(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultMaxAttempts, traverseDescription, defaultValueAndDescription...)
+	i, err := strconv.Atoi(defaultValue)
+	if err != nil {
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
+		i = 1
+	}
+	flags.IntVar(&opts.maxAttempts, maxAttemptsFlag, i, description)
+}
+
+// ResubmitDelay returns the time (in milliseconds) to wait
+// before resubmitting an invocation after a transient error
+func (c *CLIConfig) ResubmitDelay() time.Duration {
+	return time.Duration(opts.resubmitDelay) * time.Millisecond
+}
+
+// InitResubmitDelay initializes the resumbit delay from the provided arguments
+func InitResubmitDelay(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultResubmitDelay, resubmitDelayDescription, defaultValueAndDescription...)
+	i, err := strconv.Atoi(defaultValue)
+	if err != nil {
+		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
+		i = 1000
+	}
+	flags.Int64Var(&opts.resubmitDelay, resubmitDelayFlag, int64(i), description)
+}
+
+// Verbose indicates whether or not to print the transaction proposal responses
+// when Iterations > 1
+func (c *CLIConfig) Verbose() bool {
+	return opts.verbose
+}
+
+// InitVerbosity initializes the Verbose flag from the provided arguments
+func InitVerbosity(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultVerbosity, verboseDescription, defaultValueAndDescription...)
+	flags.BoolVar(&opts.verbose, verboseFlag, defaultValue == "true", description)
+}
+
+// SelectionProvider returns the peer selection provider - either static or dynamic
+func (c *CLIConfig) SelectionProvider() string {
+	return opts.selectionProvider
+}
+
+// InitSelectionProvider initializes the peer selection provider from the provided arguments
+func InitSelectionProvider(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultSelectionProvider, selectionProviderDescription, defaultValueAndDescription...)
+	flags.StringVar(&opts.selectionProvider, selectionProviderFlag, defaultValue, description)
 }
 
 // Overrides of apifabclient.Config...
@@ -562,18 +713,13 @@ func (c *CLIConfig) RandomOrdererConfig() (*apiconfig.OrdererConfig, error) {
 }
 
 // IsLoggingEnabledFor indicates whether the logger is enabled for the given logging level
-func (c *CLIConfig) IsLoggingEnabledFor(level logging.Level) bool {
-	return logging.IsEnabledFor(level, loggerName)
+func (c *CLIConfig) IsLoggingEnabledFor(level apilogging.Level) bool {
+	return logging.IsEnabledFor(loggerName, level)
 }
 
 // Utility functions...
 
 func getEmptyArgs() string {
-	// argBytes, err := json.Marshal(&common.ArgStruct{})
-	// if err != nil {
-	// 	panic(errors.Errorf("error marshaling empty args struct: %v", err))
-	// }
-	// return string(argBytes)
 	return "{}"
 }
 

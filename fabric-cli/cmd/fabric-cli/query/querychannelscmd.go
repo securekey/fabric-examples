@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -48,7 +48,7 @@ func getQueryChannelsCmd() *cobra.Command {
 }
 
 type queryChannelsAction struct {
-	common.Action
+	action.Action
 }
 
 func newQueryChannelsAction(flags *pflag.FlagSet) (*queryChannelsAction, error) {
@@ -57,25 +57,25 @@ func newQueryChannelsAction(flags *pflag.FlagSet) (*queryChannelsAction, error) 
 	return action, err
 }
 
-func (action *queryChannelsAction) run() error {
-	user, err := action.OrgAdminUser(action.OrgID())
+func (a *queryChannelsAction) run() error {
+	user, err := a.OrgAdminUser(a.OrgID())
 	if err != nil {
 		return err
 	}
 
-	client, err := action.ClientForUser(action.OrgID(), user)
+	client, err := a.ClientForUser(a.OrgID(), user)
 	if err != nil {
 		return errors.Errorf("error getting fabric client: %s", err)
 	}
 
-	response, err := client.QueryChannels(action.Peer())
+	response, err := client.QueryChannels(a.Peer())
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Channels for peer [%s]\n", action.Peer().URL())
+	fmt.Printf("Channels for peer [%s]\n", a.Peer().URL())
 
-	action.Printer().PrintChannels(response.Channels)
+	a.Printer().PrintChannels(response.Channels)
 
 	return nil
 }
