@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -56,7 +56,7 @@ func getListenCCCmd() *cobra.Command {
 }
 
 type listenccAction struct {
-	common.Action
+	action.Action
 	inputEvent
 }
 
@@ -66,8 +66,8 @@ func newListenCCAction(flags *pflag.FlagSet) (*listenccAction, error) {
 	return action, err
 }
 
-func (action *listenccAction) invoke() error {
-	eventHub, err := action.EventHub()
+func (a *listenccAction) invoke() error {
+	eventHub, err := a.EventHub()
 	if err != nil {
 		return err
 	}
@@ -75,10 +75,10 @@ func (action *listenccAction) invoke() error {
 	fmt.Printf("Registering CC event on chaincode [%s] and event [%s]\n", cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent())
 
 	registration := eventHub.RegisterChaincodeEvent(cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent(), func(event *apifabclient.ChaincodeEvent) {
-		action.Printer().PrintChaincodeEvent(event)
+		a.Printer().PrintChaincodeEvent(event)
 	})
 
-	action.WaitForEnter()
+	a.WaitForEnter()
 
 	fmt.Printf("Unregistering CC event on chaincode [%s] and event [%s]\n", cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent())
 	eventHub.UnregisterChaincodeEvent(registration)

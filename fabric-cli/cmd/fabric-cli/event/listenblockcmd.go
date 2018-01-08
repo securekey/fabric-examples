@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -42,7 +42,7 @@ func getListenBlockCmd() *cobra.Command {
 }
 
 type listenBlockAction struct {
-	common.Action
+	action.Action
 	inputEvent
 }
 
@@ -52,8 +52,8 @@ func newlistenBlockAction(flags *pflag.FlagSet) (*listenBlockAction, error) {
 	return action, err
 }
 
-func (action *listenBlockAction) invoke() error {
-	eventHub, err := action.EventHub()
+func (a *listenBlockAction) invoke() error {
+	eventHub, err := a.EventHub()
 	if err != nil {
 		return err
 	}
@@ -61,13 +61,13 @@ func (action *listenBlockAction) invoke() error {
 	fmt.Printf("Registering block event\n")
 
 	callback := func(block *fabricCommon.Block) {
-		action.Printer().PrintBlock(block)
+		a.Printer().PrintBlock(block)
 		fmt.Println("Press <enter> to terminate")
 	}
 
 	eventHub.RegisterBlockEvent(callback)
 
-	action.WaitForEnter()
+	a.WaitForEnter()
 
 	fmt.Printf("Unregistering block event\n")
 	eventHub.UnregisterBlockEvent(callback)

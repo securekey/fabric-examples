@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -56,7 +56,7 @@ func getQueryBlockCmd() *cobra.Command {
 }
 
 type queryBlockAction struct {
-	common.Action
+	action.Action
 }
 
 func newQueryBlockAction(flags *pflag.FlagSet) (*queryBlockAction, error) {
@@ -65,8 +65,8 @@ func newQueryBlockAction(flags *pflag.FlagSet) (*queryBlockAction, error) {
 	return action, err
 }
 
-func (action *queryBlockAction) invoke() error {
-	channelClient, err := action.AdminChannelClient()
+func (a *queryBlockAction) invoke() error {
+	channelClient, err := a.AdminChannelClient()
 	if err != nil {
 		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
@@ -94,14 +94,14 @@ func (action *queryBlockAction) invoke() error {
 		return errors.Errorf("must specify either a block number of a block hash")
 	}
 
-	action.Printer().PrintBlock(block)
+	a.Printer().PrintBlock(block)
 
-	action.traverse(channelClient, block, cliconfig.Config().Traverse()-1)
+	a.traverse(channelClient, block, cliconfig.Config().Traverse()-1)
 
 	return nil
 }
 
-func (action *queryBlockAction) traverse(chain apifabclient.Channel, currentBlock *fabricCommon.Block, num int) error {
+func (a *queryBlockAction) traverse(chain apifabclient.Channel, currentBlock *fabricCommon.Block, num int) error {
 	if num <= 0 {
 		return nil
 	}
@@ -111,10 +111,10 @@ func (action *queryBlockAction) traverse(chain apifabclient.Channel, currentBloc
 		return err
 	}
 
-	action.Printer().PrintBlock(block)
+	a.Printer().PrintBlock(block)
 
 	if block.Header.PreviousHash != nil {
-		return action.traverse(chain, block, num-1)
+		return a.traverse(chain, block, num-1)
 	}
 	return nil
 }

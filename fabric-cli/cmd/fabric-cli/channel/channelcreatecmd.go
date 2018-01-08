@@ -8,12 +8,10 @@ package channel
 
 import (
 	"fmt"
-	"io/ioutil"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	chmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/chmgmtclient"
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -48,7 +46,7 @@ func getChannelCreateCmd() *cobra.Command {
 }
 
 type channelCreateAction struct {
-	common.Action
+	action.Action
 }
 
 func newChannelCreateAction(flags *pflag.FlagSet) (*channelCreateAction, error) {
@@ -57,63 +55,26 @@ func newChannelCreateAction(flags *pflag.FlagSet) (*channelCreateAction, error) 
 	return action, err
 }
 
-func (action *channelCreateAction) invoke() error {
-	configTx, err := ioutil.ReadFile(cliconfig.Config().TxFile())
-	if err != nil {
-		return errors.Errorf("An error occurred while reading TX file %s: %v", cliconfig.Config().TxFile(), err)
-	}
-
-	user, err := action.OrgAdminUser(action.OrgID())
+func (a *channelCreateAction) invoke() error {
+	user, err := a.OrgAdminUser(a.OrgID())
 	if err != nil {
 		return err
 	}
 
-	adminFabClient, err := action.ClientForUser(action.OrgID(), user)
-	if err != nil {
-		return errors.Errorf("error getting fabric client: %s", err)
-	}
-
-	config, err := adminFabClient.ExtractChannelConfig(configTx)
-	if err != nil {
-		return errors.Errorf("error extracting channel config: %v", err)
-	}
-
-	txID, err := adminFabClient.NewTxnID()
-	if err != nil {
-		return errors.Errorf("Error creating transaction ID: %v", err)
-	}
-
-	configSignature, err := adminFabClient.SignChannelConfig(config)
-	if err != nil {
-		return errors.Errorf("Error signing configuration: %v", err)
-	}
-
-	orderer, err := action.RandomOrderer()
+	chMgmtClient, err := a.ChannelMgmtClient()
 	if err != nil {
 		return err
-	}
-
-	// Use the Orderer Admin user to create the channel
-	ordererAdminUser, err := action.OrdererAdminUser()
-	if err != nil {
-		return errors.Errorf("error getting orderer admin user: %s", err)
-	}
-
-	ordererAdminFabClient, err := action.ClientForUser(action.OrgID(), ordererAdminUser)
-	if err != nil {
-		return errors.Errorf("error getting fabric client: %s", err)
 	}
 
 	fmt.Printf("Attempting to create channel: %s\n", cliconfig.Config().ChannelID())
 
-	_, err = ordererAdminFabClient.CreateChannel(apifabclient.CreateChannelRequest{
-		Name:       cliconfig.Config().ChannelID(),
-		Orderer:    orderer,
-		Config:     config,
-		Signatures: []*fabricCommon.ConfigSignature{configSignature},
-		TxnID:      txID,
-	})
-	if err != nil {
+	req := chmgmt.SaveChannelRequest{
+		ChannelID:     cliconfig.Config().ChannelID(),
+		ChannelConfig: cliconfig.Config().TxFile(),
+		SigningUser:   user,
+	}
+
+	if err := chMgmtClient.SaveChannel(req); err != nil {
 		return errors.Errorf("Error from create channel: %s", err.Error())
 	}
 

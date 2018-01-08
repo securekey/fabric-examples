@@ -8,7 +8,7 @@ package query
 
 import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/common"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -43,7 +43,7 @@ func getQueryInfoCmd() *cobra.Command {
 }
 
 type queryInfoAction struct {
-	common.Action
+	action.Action
 }
 
 func newQueryInfoAction(flags *pflag.FlagSet) (*queryInfoAction, error) {
@@ -52,8 +52,8 @@ func newQueryInfoAction(flags *pflag.FlagSet) (*queryInfoAction, error) {
 	return action, err
 }
 
-func (action *queryInfoAction) run() error {
-	channelClient, err := action.AdminChannelClient()
+func (a *queryInfoAction) run() error {
+	channelClient, err := a.AdminChannelClient()
 	if err != nil {
 		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
@@ -63,7 +63,7 @@ func (action *queryInfoAction) run() error {
 		return err
 	}
 
-	action.Printer().PrintBlockchainInfo(info)
+	a.Printer().PrintBlockchainInfo(info)
 
 	return nil
 }
