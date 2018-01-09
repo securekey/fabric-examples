@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "143f96b3_fdf190e0",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 169,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2018-01-09T13:33:30Z",
+      "side": 1,
+      "message": "Not sure.",
+      "parentUuid": "c25fa32a_f285b4c3",
+      "range": {
+        "startLine": 169,
+        "startChar": 18,
+        "endLine": 169,
+        "endChar": 49
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "c5c69835_def59e43",
         "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
         "patchSetId": 4
@@ -36,6 +60,30 @@
       "writtenOn": "2018-01-09T12:58:19Z",
       "side": 1,
       "message": "is this different than the SDK config provider?",
+      "range": {
+        "startLine": 348,
+        "startChar": 18,
+        "endLine": 348,
+        "endChar": 37
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8941919e_79179294",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 348,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2018-01-09T13:33:30Z",
+      "side": 1,
+      "message": "It\u0027s an extension of the SDK config.",
+      "parentUuid": "c5c69835_def59e43",
       "range": {
         "startLine": 348,
         "startChar": 18,
@@ -71,6 +119,30 @@
     },
     {
       "key": {
+        "uuid": "f70ccc6a_3cd025f8",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 432,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2018-01-09T13:33:30Z",
+      "side": 1,
+      "message": "The CLI config is an extension of the SDK config.",
+      "parentUuid": "1c96376e_a3454ebc",
+      "range": {
+        "startLine": 432,
+        "startChar": 59,
+        "endLine": 432,
+        "endChar": 77
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3c52af1b_40d79459",
         "filename": "fabric-cli/cmd/fabric-cli/chaincode/querycmd.go",
         "patchSetId": 4
@@ -82,6 +154,30 @@
       "writtenOn": "2018-01-09T12:58:19Z",
       "side": 1,
       "message": "why 3?",
+      "range": {
+        "startLine": 125,
+        "startChar": 27,
+        "endLine": 125,
+        "endChar": 28
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1cf61a13_c0a89b24",
+        "filename": "fabric-cli/cmd/fabric-cli/chaincode/querycmd.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 125,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2018-01-09T13:33:30Z",
+      "side": 1,
+      "message": "Seemed like a good rate at which to view progress - 1 was too fast. I guess I could make it configurable but it seemed like overkill.",
+      "parentUuid": "3c52af1b_40d79459",
       "range": {
         "startLine": 125,
         "startChar": 27,
@@ -117,6 +213,30 @@
     },
     {
       "key": {
+        "uuid": "386d6da8_2f16da8b",
+        "filename": "fabric-cli/cmd/fabric-cli/chaincode/responsefilter/responsefilter.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2018-01-09T13:33:30Z",
+      "side": 1,
+      "message": "Yes. This was written before the default validation filter was implemented in the SDK. I\u0027ll be submitting a new change after the retry logic has also been implemented in the SDK and then I\u0027ll replace the filter/retry logic that I have here.",
+      "parentUuid": "347b7a7f_f4f59af4",
+      "range": {
+        "startLine": 34,
+        "startChar": 17,
+        "endLine": 34,
+        "endChar": 42
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "fadcb811_cfac47f4",
         "filename": "fabric-cli/cmd/fabric-cli/printer/blockprinter.go",
         "patchSetId": 4
@@ -128,6 +248,30 @@
       "writtenOn": "2018-01-09T12:58:19Z",
       "side": 1,
       "message": "I\u0027m guessing no IDEMIX case since we didn\u0027t bring IDEMIX changes into the SDK?",
+      "range": {
+        "startLine": 1099,
+        "startChar": 1,
+        "endLine": 1099,
+        "endChar": 8
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "74b61202_3e54b850",
+        "filename": "fabric-cli/cmd/fabric-cli/printer/blockprinter.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 1099,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2018-01-09T13:33:30Z",
+      "side": 1,
+      "message": "Yeah, this is pretty old code. At one point I\u0027ll go back and see what\u0027s missing.",
+      "parentUuid": "fadcb811_cfac47f4",
       "range": {
         "startLine": 1099,
         "startChar": 1,
