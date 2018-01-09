@@ -120,6 +120,30 @@
     },
     {
       "key": {
+        "uuid": "9b3305f2_4cc445f9",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 348,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2018-01-09T14:42:50Z",
+      "side": 1,
+      "message": "I\u0027m currently overriding OrderersConfig - which looks at the command-line option to see which orderer to use. I used to override a few more functions but, with the new SDK, this is no longer necessary.",
+      "parentUuid": "eca9c185_70f372e9",
+      "range": {
+        "startLine": 348,
+        "startChar": 18,
+        "endLine": 348,
+        "endChar": 37
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "1c96376e_a3454ebc",
         "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
         "patchSetId": 4
