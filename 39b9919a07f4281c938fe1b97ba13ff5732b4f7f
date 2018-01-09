@@ -49,6 +49,30 @@
     },
     {
       "key": {
+        "uuid": "edc4ae4f_cdff120e",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 169,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T15:22:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "143f96b3_fdf190e0",
+      "range": {
+        "startLine": 169,
+        "startChar": 18,
+        "endLine": 169,
+        "endChar": 49
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c5c69835_def59e43",
         "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
         "patchSetId": 4
@@ -144,6 +168,30 @@
     },
     {
       "key": {
+        "uuid": "70a9c474_da197f3c",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 348,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T15:22:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "9b3305f2_4cc445f9",
+      "range": {
+        "startLine": 348,
+        "startChar": 18,
+        "endLine": 348,
+        "endChar": 37
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1c96376e_a3454ebc",
         "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
         "patchSetId": 4
@@ -188,6 +236,30 @@
       "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
       "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "328d9853_b6e03460",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 432,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T15:22:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "f70ccc6a_3cd025f8",
+      "range": {
+        "startLine": 432,
+        "startChar": 59,
+        "endLine": 432,
+        "endChar": 77
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
     },
     {
       "key": {
@@ -238,6 +310,30 @@
     },
     {
       "key": {
+        "uuid": "2b21197a_09adcc3a",
+        "filename": "fabric-cli/cmd/fabric-cli/chaincode/querycmd.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 125,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T15:22:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "1cf61a13_c0a89b24",
+      "range": {
+        "startLine": 125,
+        "startChar": 27,
+        "endLine": 125,
+        "endChar": 28
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "347b7a7f_f4f59af4",
         "filename": "fabric-cli/cmd/fabric-cli/chaincode/responsefilter/responsefilter.go",
         "patchSetId": 4
@@ -282,6 +378,30 @@
       "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
       "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6b15afd9_0fec2084",
+        "filename": "fabric-cli/cmd/fabric-cli/chaincode/responsefilter/responsefilter.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T15:22:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "386d6da8_2f16da8b",
+      "range": {
+        "startLine": 34,
+        "startChar": 17,
+        "endLine": 34,
+        "endChar": 42
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
     },
     {
       "key": {
