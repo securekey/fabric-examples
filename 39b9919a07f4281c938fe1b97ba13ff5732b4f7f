@@ -449,6 +449,30 @@
       "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
       "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0a14d9f0_4a5c4de3",
+        "filename": "fabric-cli/cmd/fabric-cli/printer/blockprinter.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 1099,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T15:23:19Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "74b61202_3e54b850",
+      "range": {
+        "startLine": 1099,
+        "startChar": 1,
+        "endLine": 1099,
+        "endChar": 8
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
     }
   ]
 }
