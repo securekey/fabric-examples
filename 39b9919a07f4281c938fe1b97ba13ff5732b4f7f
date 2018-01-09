@@ -1,0 +1,142 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c25fa32a_f285b4c3",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 169,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T12:58:19Z",
+      "side": 1,
+      "message": "I wonder if this printer package makes sense in the SDK itself (as a future change)?",
+      "range": {
+        "startLine": 169,
+        "startChar": 18,
+        "endLine": 169,
+        "endChar": 49
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c5c69835_def59e43",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 348,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T12:58:19Z",
+      "side": 1,
+      "message": "is this different than the SDK config provider?",
+      "range": {
+        "startLine": 348,
+        "startChar": 18,
+        "endLine": 348,
+        "endChar": 37
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1c96376e_a3454ebc",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 432,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T12:58:19Z",
+      "side": 1,
+      "message": "Is this different than the SDK config provider?\n\nI am working on a change that populates config and cryptosuite automatically from the SDK (similar to other \"providers\").",
+      "range": {
+        "startLine": 432,
+        "startChar": 59,
+        "endLine": 432,
+        "endChar": 77
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3c52af1b_40d79459",
+        "filename": "fabric-cli/cmd/fabric-cli/chaincode/querycmd.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 125,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T12:58:19Z",
+      "side": 1,
+      "message": "why 3?",
+      "range": {
+        "startLine": 125,
+        "startChar": 27,
+        "endLine": 125,
+        "endChar": 28
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "347b7a7f_f4f59af4",
+        "filename": "fabric-cli/cmd/fabric-cli/chaincode/responsefilter/responsefilter.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T12:58:19Z",
+      "side": 1,
+      "message": "should this call the built-in filter?",
+      "range": {
+        "startLine": 34,
+        "startChar": 17,
+        "endLine": 34,
+        "endChar": 42
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fadcb811_cfac47f4",
+        "filename": "fabric-cli/cmd/fabric-cli/printer/blockprinter.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 1099,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T12:58:19Z",
+      "side": 1,
+      "message": "I\u0027m guessing no IDEMIX case since we didn\u0027t bring IDEMIX changes into the SDK?",
+      "range": {
+        "startLine": 1099,
+        "startChar": 1,
+        "endLine": 1099,
+        "endChar": 8
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    }
+  ]
+}
