@@ -96,6 +96,30 @@
     },
     {
       "key": {
+        "uuid": "eca9c185_70f372e9",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 348,
+      "author": {
+        "id": 1000024
+      },
+      "writtenOn": "2018-01-09T14:35:52Z",
+      "side": 1,
+      "message": "Ok, but I guess I\u0027m wondering if this config extension be passed into NewSDK or does it need to be here?",
+      "parentUuid": "8941919e_79179294",
+      "range": {
+        "startLine": 348,
+        "startChar": 18,
+        "endLine": 348,
+        "endChar": 37
+      },
+      "revId": "39b9919a07f4281c938fe1b97ba13ff5732b4f7f",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "1c96376e_a3454ebc",
         "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
         "patchSetId": 4
