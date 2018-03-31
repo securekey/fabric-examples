@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"strings"
 
-	resmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/resmgmtclient"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -106,13 +106,8 @@ func (a *upgradeAction) invoke() error {
 		Policy:  chaincodePolicy,
 	}
 
-	opts := resmgmt.UpgradeCCOpts{
-		Targets:      a.Peers(),
-		TargetFilter: nil,
-		Timeout:      cliconfig.Config().Timeout(),
-	}
-
-	if err := resMgmtClient.UpgradeCCWithOpts(cliconfig.Config().ChannelID(), req, opts); err != nil {
+	_, err = resMgmtClient.UpgradeCC(cliconfig.Config().ChannelID(), req, resmgmt.WithTargets(a.Peers()...))
+	if err != nil {
 		if strings.Contains(err.Error(), "chaincode exists "+cliconfig.Config().ChaincodeID()) {
 			// Ignore
 			cliconfig.Config().Logger().Infof("Chaincode %s already instantiated.", cliconfig.Config().ChaincodeID())
@@ -136,7 +131,7 @@ func (a *upgradeAction) newChaincodePolicy() (*fabricCommon.SignaturePolicyEnvel
 	// Default policy is 'signed my any member' for all known orgs
 	var mspIDs []string
 	for _, orgID := range cliconfig.Config().OrgIDs() {
-		mspID, err := cliconfig.Config().MspID(orgID)
+		mspID, err := cliconfig.Config().MSPID(orgID)
 		if err != nil {
 			return nil, errors.Errorf("Unable to get the MSP ID from org ID %s: %s", orgID, err)
 		}

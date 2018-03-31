@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -70,6 +70,7 @@ func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
 }
 
 func (action *getInfoAction) invoke() error {
+	peer := action.Peer()
 	channelClient, err := action.ChannelClient()
 	if err != nil {
 		return errors.Errorf("error retrieving channel client: %v", err)
@@ -79,26 +80,17 @@ func (action *getInfoAction) invoke() error {
 	args = append(args, []byte(cliconfig.Config().ChannelID()))
 	args = append(args, []byte(cliconfig.Config().ChaincodeID()))
 
-	peer := action.Peer()
-
 	fmt.Printf("querying chaincode info for %s on peer: %s...\n", cliconfig.Config().ChaincodeID(), peer.URL())
 
-	response, err := channelClient.QueryWithOpts(
-		apitxn.QueryRequest{
-			Fcn:         "getccdata",
-			Args:        args,
-			ChaincodeID: lifecycleSCC,
-		},
-		apitxn.QueryOpts{
-			ProposalProcessors: []apitxn.ProposalProcessor{peer},
-		},
-	)
+	response, err := channelClient.Query(
+		channel.Request{ChaincodeID: lifecycleSCC, Fcn: "getccdata", Args: args},
+		channel.WithTargetURLs(peer.URL()))
 	if err != nil {
 		return errors.Errorf("error querying for chaincode info: %v", err)
 	}
 
 	ccData := &ccprovider.ChaincodeData{}
-	err = proto.Unmarshal(response, ccData)
+	err = proto.Unmarshal(response.Payload, ccData)
 	if err != nil {
 		return errors.Errorf("error unmarshalling chaincode data: %v", err)
 	}

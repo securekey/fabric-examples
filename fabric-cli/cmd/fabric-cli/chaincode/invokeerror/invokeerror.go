@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package invokeerror
 
-import "github.com/hyperledger/fabric-sdk-go/pkg/errors"
+import "github.com/pkg/errors"
 
 type ErrorCode int
 

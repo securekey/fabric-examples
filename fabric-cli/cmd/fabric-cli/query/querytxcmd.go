@@ -9,7 +9,8 @@ package query
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -61,12 +62,12 @@ func newQueryTXAction(flags *pflag.FlagSet) (*queryTXAction, error) {
 }
 
 func (a *queryTXAction) run() error {
-	channelClient, err := a.AdminChannelClient()
+	ledgerClient, err := a.LedgerClient()
 	if err != nil {
-		return errors.Errorf("Error getting admin channel client: %v", err)
+		return errors.Errorf("Error getting ledger client: %v", err)
 	}
 
-	tx, err := channelClient.QueryTransaction(cliconfig.Config().TxID())
+	tx, err := ledgerClient.QueryTransaction(fab.TransactionID(cliconfig.Config().TxID()))
 	if err != nil {
 		return err
 	}

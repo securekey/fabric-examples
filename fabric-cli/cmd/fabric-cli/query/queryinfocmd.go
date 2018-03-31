@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package query
 
 import (
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -53,9 +53,9 @@ func newQueryInfoAction(flags *pflag.FlagSet) (*queryInfoAction, error) {
 }
 
 func (a *queryInfoAction) run() error {
-	channelClient, err := a.AdminChannelClient()
+	channelClient, err := a.LedgerClient()
 	if err != nil {
-		return errors.Errorf("Error getting admin channel client: %v", err)
+		return errors.Errorf("Error getting admin ledger client: %v", err)
 	}
 
 	info, err := channelClient.QueryInfo()
@@ -63,7 +63,7 @@ func (a *queryInfoAction) run() error {
 		return err
 	}
 
-	a.Printer().PrintBlockchainInfo(info)
+	a.Printer().PrintBlockchainInfo(info.BCI)
 
 	return nil
 }

@@ -9,6 +9,7 @@ package query
 import (
 	"fmt"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -62,12 +63,12 @@ func (a *queryInstalledAction) run() error {
 		return err
 	}
 
-	client, err := a.ClientForUser(a.OrgID(), user)
+	client, err := a.ResourceMgmtClientForUser(user)
 	if err != nil {
 		return err
 	}
 
-	response, err := client.QueryInstalledChaincodes(a.Peer())
+	response, err := client.QueryInstalledChaincodes(resmgmt.WithTargets(a.Peer()))
 	if err != nil {
 		return err
 	}

@@ -13,11 +13,12 @@ import (
 
 	"strings"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apiconfig"
-	"github.com/hyperledger/fabric-sdk-go/api/apilogging"
-	"github.com/hyperledger/fabric-sdk-go/pkg/config"
-	"github.com/hyperledger/fabric-sdk-go/pkg/logging"
 	"github.com/spf13/pflag"
+
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/logging"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/core"
+	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
+	"github.com/hyperledger/fabric-sdk-go/pkg/core/config/endpoint"
 )
 
 const (
@@ -188,7 +189,7 @@ type options struct {
 	args                 string
 	chaincodeEvent       string
 	blockHash            string
-	blockNum             int
+	blockNum             uint64
 	traverse             int
 	chaincodePolicy      string
 	collectionConfigFile string
@@ -217,7 +218,7 @@ func init() {
 
 // CLIConfig overrides certain configuration values with those supplied on the command-line
 type CLIConfig struct {
-	apiconfig.Config
+	core.Config
 	logger *logging.Logger
 }
 
@@ -227,7 +228,7 @@ func InitConfig() error {
 		logger: logging.NewLogger(loggerName),
 	}
 
-	cnfg, err := config.InitConfig(opts.configFile)
+	cnfg, err := config.FromFile(opts.configFile)()
 	if err != nil {
 		return err
 	}
@@ -235,6 +236,10 @@ func InitConfig() error {
 	instance.Config = cnfg
 
 	return nil
+}
+
+func Provider() (core.Config, error) {
+	return instance, nil
 }
 
 // Config returns the CLI configuration
@@ -272,9 +277,11 @@ func (c *CLIConfig) OrgID() string {
 // OrgIDs returns a comma-separated list of organization IDs
 func (c *CLIConfig) OrgIDs() []string {
 	var orgIDs []string
-	s := strings.Split(opts.orgIDsStr, ",")
-	for _, orgID := range s {
-		orgIDs = append(orgIDs, orgID)
+	if len(strings.TrimSpace(opts.orgIDsStr)) > 0 {
+		s := strings.Split(opts.orgIDsStr, ",")
+		for _, orgID := range s {
+			orgIDs = append(orgIDs, orgID)
+		}
 	}
 	return orgIDs
 }
@@ -367,6 +374,18 @@ func (c *CLIConfig) PeerURL() string {
 	return opts.peerURL
 }
 
+// PeerURLs returns a list of peer URLs
+func (c *CLIConfig) PeerURLs() []string {
+	var urls []string
+	if len(strings.TrimSpace(opts.peerURL)) > 0 {
+		s := strings.Split(opts.peerURL, ",")
+		for _, orgID := range s {
+			urls = append(urls, orgID)
+		}
+	}
+	return urls
+}
+
 // InitPeerURL initializes the peer URL from the provided arguments
 func InitPeerURL(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultPeerURL, peerURLDescription, defaultValueAndDescription...)
@@ -417,19 +436,19 @@ func InitSleepTime(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 }
 
 // BlockNum returns the block number (where 0 is the first block)
-func (c *CLIConfig) BlockNum() int {
+func (c *CLIConfig) BlockNum() uint64 {
 	return opts.blockNum
 }
 
 // InitBlockNum initializes the bluck number from the provided arguments
 func InitBlockNum(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultBlockNum, blockNumDescription, defaultValueAndDescription...)
-	i, err := strconv.Atoi(defaultValue)
+	i, err := strconv.ParseUint(defaultValue, 10, 64)
 	if err != nil {
 		fmt.Printf("Invalid number for %s: %s\n", timeoutFlag, defaultValue)
 		i = 1
 	}
-	flags.IntVar(&opts.blockNum, blockNumFlag, i, description)
+	flags.Uint64Var(&opts.blockNum, blockNumFlag, i, description)
 }
 
 // BlockHash specifies the hash of the block
@@ -559,7 +578,8 @@ func InitCollectionConfigFile(flags *pflag.FlagSet, defaultValueAndDescription .
 }
 
 // Timeout returns the timeout (in milliseconds) for various operations
-func (c *CLIConfig) Timeout() time.Duration {
+func (c *CLIConfig) Timeout(timeoutType core.TimeoutType) time.Duration {
+	// TODO use provided timoutType
 	return time.Duration(opts.timeout) * time.Millisecond
 }
 
@@ -660,10 +680,10 @@ func InitSelectionProvider(flags *pflag.FlagSet, defaultValueAndDescription ...s
 	flags.StringVar(&opts.selectionProvider, selectionProviderFlag, defaultValue, description)
 }
 
-// Overrides of apifabclient.Config...
+// Overrides of fab.Config...
 
 // OrderersConfig returns the configuration of all of the defined orderers
-func (c *CLIConfig) OrderersConfig() ([]apiconfig.OrdererConfig, error) {
+func (c *CLIConfig) OrderersConfig() ([]core.OrdererConfig, error) {
 	overridden := false
 
 	configs, err := c.Config.OrderersConfig()
@@ -692,10 +712,10 @@ func (c *CLIConfig) OrderersConfig() ([]apiconfig.OrdererConfig, error) {
 		return c.Config.OrderersConfig()
 	}
 
-	return []apiconfig.OrdererConfig{
-		apiconfig.OrdererConfig{
+	return []core.OrdererConfig{
+		core.OrdererConfig{
 			URL: url,
-			TLSCACerts: apiconfig.TLSConfig{
+			TLSCACerts: endpoint.TLSConfig{
 				Path: certificate,
 				Pem:  pem,
 			},
@@ -704,7 +724,7 @@ func (c *CLIConfig) OrderersConfig() ([]apiconfig.OrdererConfig, error) {
 }
 
 // RandomOrdererConfig returns the configuration of a randomly selected orderer
-func (c *CLIConfig) RandomOrdererConfig() (*apiconfig.OrdererConfig, error) {
+func (c *CLIConfig) RandomOrdererConfig() (*core.OrdererConfig, error) {
 	orderers, err := c.OrderersConfig()
 	if err != nil {
 		return nil, err
@@ -713,7 +733,7 @@ func (c *CLIConfig) RandomOrdererConfig() (*apiconfig.OrdererConfig, error) {
 }
 
 // IsLoggingEnabledFor indicates whether the logger is enabled for the given logging level
-func (c *CLIConfig) IsLoggingEnabledFor(level apilogging.Level) bool {
+func (c *CLIConfig) IsLoggingEnabledFor(level logging.Level) bool {
 	return logging.IsEnabledFor(loggerName, level)
 }
 

@@ -9,8 +9,9 @@ package channel
 import (
 	"fmt"
 
-	chmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/chmgmtclient"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -50,9 +51,9 @@ type channelCreateAction struct {
 }
 
 func newChannelCreateAction(flags *pflag.FlagSet) (*channelCreateAction, error) {
-	action := &channelCreateAction{}
-	err := action.Initialize(flags)
-	return action, err
+	a := &channelCreateAction{}
+	err := a.Initialize(flags)
+	return a, err
 }
 
 func (a *channelCreateAction) invoke() error {
@@ -61,24 +62,25 @@ func (a *channelCreateAction) invoke() error {
 		return err
 	}
 
-	chMgmtClient, err := a.ChannelMgmtClient()
+	chMgmtClient, err := a.ResourceMgmtClient()
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Attempting to create channel: %s\n", cliconfig.Config().ChannelID())
 
-	req := chmgmt.SaveChannelRequest{
-		ChannelID:     cliconfig.Config().ChannelID(),
-		ChannelConfig: cliconfig.Config().TxFile(),
-		SigningUser:   user,
+	req := resmgmt.SaveChannelRequest{
+		ChannelID:         cliconfig.Config().ChannelID(),
+		ChannelConfigPath: cliconfig.Config().TxFile(),
+		SigningIdentities: []msp.SigningIdentity{user},
 	}
 
-	if err := chMgmtClient.SaveChannel(req); err != nil {
+	_, err = chMgmtClient.SaveChannel(req)
+	if err != nil {
 		return errors.Errorf("Error from create channel: %s", err.Error())
 	}
 
-	fmt.Println("Channel created!")
+	fmt.Printf("Channel created: %s\n", cliconfig.Config().ChannelID())
 
 	return nil
 }
