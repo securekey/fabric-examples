@@ -8,7 +8,6 @@ package event
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 )
 
@@ -17,14 +16,13 @@ type inputEvent struct {
 }
 
 // WaitForEnter waits until the user presses Enter
-func (c *inputEvent) WaitForEnter() {
+func (c *inputEvent) WaitForEnter() chan bool {
 	go c.readFromCLI()
-	<-c.done
+	return c.done
 }
 
 func (c *inputEvent) readFromCLI() {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Press <enter> to terminate")
 	reader.ReadString('\n')
 	c.done <- true
 }

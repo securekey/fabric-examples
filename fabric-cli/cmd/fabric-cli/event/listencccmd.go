@@ -9,7 +9,7 @@ package event
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -67,21 +67,33 @@ func newListenCCAction(flags *pflag.FlagSet) (*listenccAction, error) {
 }
 
 func (a *listenccAction) invoke() error {
-	eventHub, err := a.EventHub()
+
+	fmt.Printf("Registering CC event on chaincode [%s] and event [%s]\n", cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent())
+
+	eventHub, err := a.EventClient()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Registering CC event on chaincode [%s] and event [%s]\n", cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent())
+	breg, beventch, err := eventHub.RegisterChaincodeEvent(cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent())
+	if err != nil {
+		return errors.WithMessage(err, "Error registering for block events")
+	}
+	defer eventHub.Unregister(breg)
 
-	registration := eventHub.RegisterChaincodeEvent(cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent(), func(event *apifabclient.ChaincodeEvent) {
-		a.Printer().PrintChaincodeEvent(event)
-	})
-
-	a.WaitForEnter()
-
-	fmt.Printf("Unregistering CC event on chaincode [%s] and event [%s]\n", cliconfig.Config().ChaincodeID(), cliconfig.Config().ChaincodeEvent())
-	eventHub.UnregisterChaincodeEvent(registration)
+	enterch := a.WaitForEnter()
+	for {
+		select {
+		case _, _ = <-enterch:
+			return nil
+		case event, ok := <-beventch:
+			if !ok {
+				return errors.WithMessage(err, "unexpected closed channel while waiting for block event")
+			}
+			a.Printer().PrintChaincodeEvent(event)
+			fmt.Println("Press <enter> to terminate")
+		}
+	}
 
 	return nil
 }

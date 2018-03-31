@@ -12,10 +12,10 @@ import (
 	"reflect"
 	"strings"
 
+	"net/http"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	ledgerUtil "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/util"
@@ -25,6 +25,7 @@ import (
 	ab "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/orderer"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	utils "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/utils"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -85,6 +86,9 @@ type Printer interface {
 	// PrintBlock outputs a Block
 	PrintBlock(block *fabriccmn.Block)
 
+	// PrintFilteredBlock outputs a Block
+	PrintFilteredBlock(block *pb.FilteredBlock)
+
 	// PrintChannels outputs the array of ChannelInfo
 	PrintChannels(channels []*pb.ChannelInfo)
 
@@ -98,13 +102,13 @@ type Printer interface {
 	PrintChaincodeData(ccdata *ccprovider.ChaincodeData)
 
 	// PrintTxProposalResponses outputs the proposal responses
-	PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse, payloadOnly bool)
+	PrintTxProposalResponses(responses []*fab.TransactionProposalResponse, payloadOnly bool)
 
 	// PrintResponses outputs responses
 	PrintResponses(response []*pb.Response)
 
 	// PrintChaincodeEvent outputs a chaincode event
-	PrintChaincodeEvent(event *apifabclient.ChaincodeEvent)
+	PrintChaincodeEvent(event *fab.CCEvent)
 
 	// Print outputs a formatted string
 	Print(frmt string, vars ...interface{})
@@ -163,11 +167,31 @@ func (p *BlockPrinter) PrintBlock(block *fabriccmn.Block) {
 
 	p.Element("Data")
 	p.Array("Data")
-	numEnvelopes := len(block.Data.Data)
-	for i := 0; i < numEnvelopes; i++ {
+	for i, _ := range block.Data.Data {
 		p.Item("Envelope", i)
 		p.PrintEnvelope(utils.ExtractEnvelopeOrPanic(block, i))
 		p.ItemEnd()
+	}
+	p.ArrayEnd()
+	p.ElementEnd()
+	p.PrintFooter()
+}
+
+// PrintFilteredBlock prints a FilteredBlock
+func (p *BlockPrinter) PrintFilteredBlock(block *pb.FilteredBlock) {
+	if p.Formatter == nil {
+		fmt.Printf("%s\n", block)
+		return
+	}
+
+	p.PrintHeader()
+	p.Field("ChannelID", block.ChannelId)
+	p.Field("Number", block.Number)
+
+	p.Element("FilteredTransactions")
+	p.Array("FilteredTransactions")
+	for _, tx := range block.FilteredTransactions {
+		p.PrintFilteredTransaction(tx)
 	}
 	p.ArrayEnd()
 	p.ElementEnd()
@@ -258,7 +282,7 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 }
 
 // PrintTxProposalResponses prints the given transaction proposal responses
-func (p *BlockPrinter) PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse, payloadOnly bool) {
+func (p *BlockPrinter) PrintTxProposalResponses(responses []*fab.TransactionProposalResponse, payloadOnly bool) {
 	if p.Formatter == nil {
 		for i, response := range responses {
 			fmt.Printf("Response[%d]: %v\n", i, response)
@@ -278,7 +302,7 @@ func (p *BlockPrinter) PrintTxProposalResponses(responses []*apitxn.TransactionP
 }
 
 // PrintChaincodeEvent prints the given ChaincodeEvent
-func (p *BlockPrinter) PrintChaincodeEvent(event *apifabclient.ChaincodeEvent) {
+func (p *BlockPrinter) PrintChaincodeEvent(event *fab.CCEvent) {
 	if p.Formatter == nil {
 		fmt.Printf("%v\n", event)
 		return
@@ -287,17 +311,17 @@ func (p *BlockPrinter) PrintChaincodeEvent(event *apifabclient.ChaincodeEvent) {
 	p.PrintHeader()
 	p.Field("ChaincodeID", event.ChaincodeID)
 	p.Field("EventName", event.EventName)
-	p.Field("ChannelID", event.ChannelID)
+	//p.Field("ChannelID", event.ChannelID)
 	p.Field("TxID", event.TxID)
 	p.Field("Payload", event.Payload)
 	p.PrintFooter()
 }
 
 // PrintTxProposalResponse prints the TransactionProposalResponse
-func (p *BlockPrinter) PrintTxProposalResponse(response *apitxn.TransactionProposalResponse, payloadOnly bool) {
+func (p *BlockPrinter) PrintTxProposalResponse(response *fab.TransactionProposalResponse, payloadOnly bool) {
 	if payloadOnly {
-		if response.Err != nil {
-			p.Field("Err", response.Err)
+		if response.Status != http.StatusOK {
+			p.Field("Err", response.Status)
 		} else if response.ProposalResponse == nil || response.ProposalResponse.Response == nil {
 			p.Field("Response", nil)
 		} else {
@@ -305,7 +329,7 @@ func (p *BlockPrinter) PrintTxProposalResponse(response *apitxn.TransactionPropo
 		}
 	} else {
 		p.Field("Endorser", response.Endorser)
-		p.Field("Err", response.Err)
+		p.Field("Err", response.Status)
 		p.Field("Status", response.Status)
 		p.Element("ProposalResponse")
 		p.PrintProposalResponse(response.ProposalResponse)
@@ -520,6 +544,21 @@ func (p *BlockPrinter) PrintTransaction(tx *pb.Transaction) {
 	p.ArrayEnd()
 }
 
+// PrintFilteredTransaction prints a FilteredTransaction
+func (p *BlockPrinter) PrintFilteredTransaction(tx *pb.FilteredTransaction) {
+	p.Field("Txid", tx.GetTxid())
+	p.Field("Type", tx.GetType())
+	p.Field("TxValidationCode", tx.GetTxValidationCode())
+	p.Element("ChaincodeEvents")
+	p.Array("ChaincodeEvents")
+	txActions := tx.GetTransactionActions()
+	for _, ccAction := range txActions.ChaincodeActions {
+		p.PrintFilteredCCAction(ccAction)
+	}
+	p.ArrayEnd()
+	p.ElementEnd()
+}
+
 // PrintTXAction prinbts a transaction action
 func (p *BlockPrinter) PrintTXAction(action *pb.TransactionAction) {
 	p.Element("Header")
@@ -541,6 +580,15 @@ func (p *BlockPrinter) PrintTXAction(action *pb.TransactionAction) {
 
 	p.PrintChaincodeActionPayload(chaPayload)
 	p.ElementEnd()
+}
+
+// PrintFilteredCCAction prinbts a chaincode action
+func (p *BlockPrinter) PrintFilteredCCAction(action *pb.FilteredChaincodeAction) {
+	ccEvent := action.GetChaincodeEvent()
+	p.Field("Txid", ccEvent.GetTxId())
+	p.Field("ChaincodeId", ccEvent.GetChaincodeId())
+	p.Field("EventName", ccEvent.GetEventName())
+	p.Field("Payload", ccEvent.GetPayload())
 }
 
 // PrintChaincodeActionPayload prints a ChaincodeActionPayload

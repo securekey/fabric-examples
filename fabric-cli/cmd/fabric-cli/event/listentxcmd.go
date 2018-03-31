@@ -9,8 +9,7 @@ package event
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
-	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -61,25 +60,32 @@ func newListenTXAction(flags *pflag.FlagSet) (*listentxAction, error) {
 }
 
 func (a *listentxAction) invoke() error {
-	done := make(chan bool)
 
-	eventHub, err := a.EventHub()
+	eventHub, err := a.EventClient()
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Registering TX event for TxID [%s]\n", cliconfig.Config().TxID())
 
-	txnID := apitxn.TransactionID{ID: cliconfig.Config().TxID()}
-	eventHub.RegisterTxEvent(txnID, func(txID string, code pb.TxValidationCode, err error) {
-		fmt.Printf("Received TX event. TxID: %s, Code: %s, Error: %s\n", txID, code, err)
-		done <- true
-	})
+	reg, eventch, err := eventHub.RegisterTxStatusEvent(cliconfig.Config().TxID())
+	if err != nil {
+		return errors.WithMessage(err, "Error registering for block events")
+	}
+	defer eventHub.Unregister(reg)
 
-	a.WaitForEnter()
+	enterch := a.WaitForEnter()
+	fmt.Println("Press <enter> to terminate")
 
-	fmt.Printf("Unregistering TX event for TxID [%s]\n", cliconfig.Config().TxID())
-	eventHub.UnregisterTxEvent(txnID)
+	select {
+	case _, _ = <-enterch:
+		return nil
+	case event, ok := <-eventch:
+		if !ok {
+			return errors.WithMessage(err, "unexpected closed channel while waiting for tx status event")
+		}
+		fmt.Printf("Received TX event. TxID: %s, Code: %s, Error: %s\n", event.TxID, event.TxValidationCode, err)
+	}
 
 	return nil
 }
