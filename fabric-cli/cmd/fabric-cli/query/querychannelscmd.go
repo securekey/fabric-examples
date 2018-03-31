@@ -9,7 +9,8 @@ package query
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -26,14 +27,13 @@ var queryChannelsCmd = &cobra.Command{
 			cliconfig.Config().Logger().Errorf("Error while initializing queryChannelsAction: %v", err)
 			return
 		}
+		defer action.Terminate()
 
-		if len(action.Peers()) != 1 {
+		if len(cliconfig.Config().PeerURLs()) != 1 {
 			fmt.Printf("\nMust specify exactly one peer URL\n\n")
 			cmd.HelpFunc()(cmd, args)
 			return
 		}
-
-		defer action.Terminate()
 
 		err = action.run()
 		if err != nil {
@@ -58,17 +58,27 @@ func newQueryChannelsAction(flags *pflag.FlagSet) (*queryChannelsAction, error) 
 }
 
 func (a *queryChannelsAction) run() error {
+
+	url := cliconfig.Config().PeerURLs()
+	if len(url) != 1 {
+		return errors.New("must specify exactly one peer URL")
+	}
+	peer, ok := a.PeerFromURL(url[0])
+	if !ok {
+		return fmt.Errorf("invalid peer URL: %s", url)
+	}
+
 	user, err := a.OrgAdminUser(a.OrgID())
 	if err != nil {
 		return err
 	}
 
-	client, err := a.ClientForUser(a.OrgID(), user)
+	client, err := a.ResourceMgmtClientForUser(user)
 	if err != nil {
-		return errors.Errorf("error getting fabric client: %s", err)
+		return errors.WithMessage(err, "error getting fabric client")
 	}
 
-	response, err := client.QueryChannels(a.Peer())
+	response, err := client.QueryChannels(resmgmt.WithTargets(peer))
 	if err != nil {
 		return err
 	}

@@ -12,10 +12,10 @@ import (
 	"io/ioutil"
 	"strings"
 
-	resmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/resmgmtclient"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
-	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -81,7 +81,8 @@ func newInstantiateAction(flags *pflag.FlagSet) (*instantiateAction, error) {
 }
 
 func (a *instantiateAction) invoke() error {
-	argBytes := []byte(cliconfig.Config().Args())
+	s := cliconfig.Config().Args()
+	argBytes := []byte(s)
 	args := &action.ArgStruct{}
 
 	if err := json.Unmarshal(argBytes, args); err != nil {
@@ -102,7 +103,7 @@ func (a *instantiateAction) invoke() error {
 
 	// Private Data Collection Configuration
 	// - see fixtures/config/pvtdatacollection.json for sample config file
-	var collConfig []*fabricCommon.CollectionConfig
+	var collConfig []*common.CollectionConfig
 	collConfigFile := cliconfig.Config().CollectionConfigFile()
 	if collConfigFile != "" {
 		collConfig, err = getCollectionConfigFromFile(cliconfig.Config().CollectionConfigFile())
@@ -120,13 +121,8 @@ func (a *instantiateAction) invoke() error {
 		CollConfig: collConfig,
 	}
 
-	opts := resmgmt.InstantiateCCOpts{
-		Targets:      a.Peers(),
-		TargetFilter: nil,
-		Timeout:      cliconfig.Config().Timeout(),
-	}
-
-	if err := resMgmtClient.InstantiateCCWithOpts(cliconfig.Config().ChannelID(), req, opts); err != nil {
+	_, err = resMgmtClient.InstantiateCC(cliconfig.Config().ChannelID(), req, resmgmt.WithTargets(a.Peer()))
+	if err != nil {
 		if strings.Contains(err.Error(), "chaincode exists "+cliconfig.Config().ChaincodeID()) {
 			// Ignore
 			cliconfig.Config().Logger().Infof("Chaincode %s already instantiated.", cliconfig.Config().ChaincodeID())
@@ -141,7 +137,7 @@ func (a *instantiateAction) invoke() error {
 	return nil
 }
 
-func (a *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePolicyEnvelope, error) {
+func (a *instantiateAction) newChaincodePolicy() (*common.SignaturePolicyEnvelope, error) {
 	if cliconfig.Config().ChaincodePolicy() != "" {
 		// Create a signature policy from the policy expression passed in
 		return newChaincodePolicy(cliconfig.Config().ChaincodePolicy())
@@ -150,7 +146,7 @@ func (a *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePolicyE
 	// Default policy is 'signed my any member' for all known orgs
 	var mspIDs []string
 	for _, orgID := range cliconfig.Config().OrgIDs() {
-		mspID, err := cliconfig.Config().MspID(orgID)
+		mspID, err := a.EndpointConfig().MSPID(orgID)
 		if err != nil {
 			return nil, errors.Errorf("Unable to get the MSP ID from org ID %s: %s", orgID, err)
 		}
@@ -159,7 +155,7 @@ func (a *instantiateAction) newChaincodePolicy() (*fabricCommon.SignaturePolicyE
 	return cauthdsl.SignedByAnyMember(mspIDs), nil
 }
 
-func newChaincodePolicy(policyString string) (*fabricCommon.SignaturePolicyEnvelope, error) {
+func newChaincodePolicy(policyString string) (*common.SignaturePolicyEnvelope, error) {
 	ccPolicy, err := cauthdsl.FromString(policyString)
 	if err != nil {
 		return nil, errors.Errorf("invalid chaincode policy [%s]: %s", policyString, err)
@@ -174,7 +170,7 @@ type collectionConfigJSON struct {
 	MaxPeerCount      int32  `json:"maxPeerCount"`
 }
 
-func getCollectionConfigFromFile(ccFile string) ([]*fabricCommon.CollectionConfig, error) {
+func getCollectionConfigFromFile(ccFile string) ([]*common.CollectionConfig, error) {
 	fileBytes, err := ioutil.ReadFile(ccFile)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read file [%s]", ccFile)
@@ -186,21 +182,21 @@ func getCollectionConfigFromFile(ccFile string) ([]*fabricCommon.CollectionConfi
 	return getCollectionConfig(*cconf)
 }
 
-func getCollectionConfig(cconf []collectionConfigJSON) ([]*fabricCommon.CollectionConfig, error) {
-	ccarray := make([]*fabricCommon.CollectionConfig, 0, len(cconf))
+func getCollectionConfig(cconf []collectionConfigJSON) ([]*common.CollectionConfig, error) {
+	ccarray := make([]*common.CollectionConfig, 0, len(cconf))
 	for _, cconfitem := range cconf {
 		p, err := cauthdsl.FromString(cconfitem.Policy)
 		if err != nil {
 			return nil, errors.WithMessage(err, fmt.Sprintf("invalid policy %s", cconfitem.Policy))
 		}
-		cpc := &fabricCommon.CollectionPolicyConfig{
-			Payload: &fabricCommon.CollectionPolicyConfig_SignaturePolicy{
+		cpc := &common.CollectionPolicyConfig{
+			Payload: &common.CollectionPolicyConfig_SignaturePolicy{
 				SignaturePolicy: p,
 			},
 		}
-		cc := &fabricCommon.CollectionConfig{
-			Payload: &fabricCommon.CollectionConfig_StaticCollectionConfig{
-				StaticCollectionConfig: &fabricCommon.StaticCollectionConfig{
+		cc := &common.CollectionConfig{
+			Payload: &common.CollectionConfig_StaticCollectionConfig{
+				StaticCollectionConfig: &common.StaticCollectionConfig{
 					Name:              cconfitem.Name,
 					MemberOrgsPolicy:  cpc,
 					RequiredPeerCount: cconfitem.RequiredPeerCount,

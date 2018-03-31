@@ -9,9 +9,9 @@ package channel
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	resmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/resmgmtclient"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -78,21 +78,19 @@ func (a *channelJoinAction) invoke() error {
 	return nil
 }
 
-func (a *channelJoinAction) joinChannel(orgID string, peers []apifabclient.Peer) error {
+func (a *channelJoinAction) joinChannel(orgID string, peers []fab.Peer) error {
 	cliconfig.Config().Logger().Debugf("Joining channel [%s]...\n", cliconfig.Config().ChannelID())
+
+	fmt.Printf("==========> JOIN ORG: %s\n", orgID)
 
 	resMgmtClient, err := a.ResourceMgmtClientForOrg(orgID)
 	if err != nil {
 		return err
 	}
 
-	opts := resmgmt.JoinChannelOpts{
-		Targets:      peers,
-		TargetFilter: nil,
-	}
-
-	if err := resMgmtClient.JoinChannelWithOpts(cliconfig.Config().ChannelID(), opts); err != nil {
-		return errors.Errorf("Could not join channel: %v", err)
+	err = resMgmtClient.JoinChannel(cliconfig.Config().ChannelID(), resmgmt.WithTargets(peers...))
+	if err != nil {
+		return errors.WithMessage(err, "Could not join channel: %v")
 	}
 
 	fmt.Printf("Channel %s joined!\n", cliconfig.Config().ChannelID())
