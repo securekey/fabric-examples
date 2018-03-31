@@ -12,10 +12,10 @@ import (
 	"reflect"
 	"strings"
 
+	"net/http"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	ledgerUtil "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/util"
@@ -25,6 +25,7 @@ import (
 	ab "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/orderer"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	utils "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/utils"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -98,13 +99,13 @@ type Printer interface {
 	PrintChaincodeData(ccdata *ccprovider.ChaincodeData)
 
 	// PrintTxProposalResponses outputs the proposal responses
-	PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse, payloadOnly bool)
+	PrintTxProposalResponses(responses []*fab.TransactionProposalResponse, payloadOnly bool)
 
 	// PrintResponses outputs responses
 	PrintResponses(response []*pb.Response)
 
 	// PrintChaincodeEvent outputs a chaincode event
-	PrintChaincodeEvent(event *apifabclient.ChaincodeEvent)
+	PrintChaincodeEvent(event *fab.CCEvent)
 
 	// Print outputs a formatted string
 	Print(frmt string, vars ...interface{})
@@ -258,7 +259,7 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 }
 
 // PrintTxProposalResponses prints the given transaction proposal responses
-func (p *BlockPrinter) PrintTxProposalResponses(responses []*apitxn.TransactionProposalResponse, payloadOnly bool) {
+func (p *BlockPrinter) PrintTxProposalResponses(responses []*fab.TransactionProposalResponse, payloadOnly bool) {
 	if p.Formatter == nil {
 		for i, response := range responses {
 			fmt.Printf("Response[%d]: %v\n", i, response)
@@ -278,7 +279,7 @@ func (p *BlockPrinter) PrintTxProposalResponses(responses []*apitxn.TransactionP
 }
 
 // PrintChaincodeEvent prints the given ChaincodeEvent
-func (p *BlockPrinter) PrintChaincodeEvent(event *apifabclient.ChaincodeEvent) {
+func (p *BlockPrinter) PrintChaincodeEvent(event *fab.CCEvent) {
 	if p.Formatter == nil {
 		fmt.Printf("%v\n", event)
 		return
@@ -287,17 +288,17 @@ func (p *BlockPrinter) PrintChaincodeEvent(event *apifabclient.ChaincodeEvent) {
 	p.PrintHeader()
 	p.Field("ChaincodeID", event.ChaincodeID)
 	p.Field("EventName", event.EventName)
-	p.Field("ChannelID", event.ChannelID)
+	//p.Field("ChannelID", event.ChannelID)
 	p.Field("TxID", event.TxID)
 	p.Field("Payload", event.Payload)
 	p.PrintFooter()
 }
 
 // PrintTxProposalResponse prints the TransactionProposalResponse
-func (p *BlockPrinter) PrintTxProposalResponse(response *apitxn.TransactionProposalResponse, payloadOnly bool) {
+func (p *BlockPrinter) PrintTxProposalResponse(response *fab.TransactionProposalResponse, payloadOnly bool) {
 	if payloadOnly {
-		if response.Err != nil {
-			p.Field("Err", response.Err)
+		if response.Status != http.StatusOK {
+			p.Field("Err", response.Status)
 		} else if response.ProposalResponse == nil || response.ProposalResponse.Response == nil {
 			p.Field("Response", nil)
 		} else {
@@ -305,7 +306,7 @@ func (p *BlockPrinter) PrintTxProposalResponse(response *apitxn.TransactionPropo
 		}
 	} else {
 		p.Field("Endorser", response.Endorser)
-		p.Field("Err", response.Err)
+		p.Field("Err", response.Status)
 		p.Field("Status", response.Status)
 		p.Element("ProposalResponse")
 		p.PrintProposalResponse(response.ProposalResponse)

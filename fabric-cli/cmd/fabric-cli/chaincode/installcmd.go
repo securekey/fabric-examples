@@ -8,11 +8,12 @@ package chaincode
 
 import (
 	"fmt"
+	"net/http"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	resmgmt "github.com/hyperledger/fabric-sdk-go/api/apitxn/resmgmtclient"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
-	packager "github.com/hyperledger/fabric-sdk-go/pkg/fabric-client/ccpackager/gopackager"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
+	"github.com/hyperledger/fabric-sdk-go/pkg/fab/ccpackager/gopackager"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -84,30 +85,24 @@ func (action *installAction) invoke() error {
 	return nil
 }
 
-func (action *installAction) installChaincode(orgID string, targets []apifabclient.Peer) error {
+func (action *installAction) installChaincode(orgID string, targets []fab.Peer) error {
+
 	resMgmtClient, err := action.ResourceMgmtClientForOrg(orgID)
 	if err != nil {
 		return err
 	}
 
-	ccPkg, err := packager.NewCCPackage(cliconfig.Config().ChaincodePath(), "")
+	ccPkg, err := gopackager.NewCCPackage(cliconfig.Config().ChaincodePath(), "")
 	if err != nil {
 		return err
 	}
-
 	req := resmgmt.InstallCCRequest{
 		Name:    cliconfig.Config().ChaincodeID(),
 		Path:    cliconfig.Config().ChaincodePath(),
 		Version: cliconfig.Config().ChaincodeVersion(),
 		Package: ccPkg,
 	}
-
-	opts := resmgmt.InstallCCOpts{
-		Targets:      targets,
-		TargetFilter: nil,
-	}
-
-	responses, err := resMgmtClient.InstallCCWithOpts(req, opts)
+	responses, err := resMgmtClient.InstallCC(req, resmgmt.WithTargets(targets...))
 	if err != nil {
 		return errors.Errorf("InstallChaincode returned error: %v", err)
 	}
@@ -116,8 +111,8 @@ func (action *installAction) installChaincode(orgID string, targets []apifabclie
 
 	var errs []error
 	for _, resp := range responses {
-		if resp.Err != nil {
-			errs = append(errs, errors.Errorf("installCC returned error from peer %s: %v", resp.Target, resp.Err))
+		if resp.Status != http.StatusOK {
+			errs = append(errs, errors.Errorf("installCC returned error from peer %s: %v", resp.Target, resp.Status))
 		} else if resp.Info == "already installed" {
 			fmt.Printf("Chaincode %s already installed on peer: %s.\n", ccIDVersion, resp.Target)
 		} else {
