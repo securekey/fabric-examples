@@ -9,7 +9,8 @@ package query
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -63,12 +64,12 @@ func (a *queryChannelsAction) run() error {
 		return err
 	}
 
-	client, err := a.ClientForUser(a.OrgID(), user)
+	client, err := a.ResourceMgmtClientForUser(user)
 	if err != nil {
 		return errors.Errorf("error getting fabric client: %s", err)
 	}
 
-	response, err := client.QueryChannels(a.Peer())
+	response, err := client.QueryChannels(resmgmt.WithTargets(a.Peer()))
 	if err != nil {
 		return err
 	}

@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	"github.com/hyperledger/fabric-sdk-go/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/ledger"
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -66,7 +66,7 @@ func newQueryBlockAction(flags *pflag.FlagSet) (*queryBlockAction, error) {
 }
 
 func (a *queryBlockAction) invoke() error {
-	channelClient, err := a.AdminChannelClient()
+	ledgerClient, err := a.LedgerClient()
 	if err != nil {
 		return errors.Errorf("Error getting admin channel client: %v", err)
 	}
@@ -74,7 +74,7 @@ func (a *queryBlockAction) invoke() error {
 	var block *fabricCommon.Block
 	if cliconfig.Config().BlockNum() >= 0 {
 		var err error
-		block, err = channelClient.QueryBlock(cliconfig.Config().BlockNum())
+		block, err = ledgerClient.QueryBlock(cliconfig.Config().BlockNum())
 		if err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func (a *queryBlockAction) invoke() error {
 			return err
 		}
 
-		block, err = channelClient.QueryBlockByHash(hashBytes)
+		block, err = ledgerClient.QueryBlockByHash(hashBytes)
 		if err != nil {
 			return err
 		}
@@ -96,17 +96,17 @@ func (a *queryBlockAction) invoke() error {
 
 	a.Printer().PrintBlock(block)
 
-	a.traverse(channelClient, block, cliconfig.Config().Traverse()-1)
+	a.traverse(ledgerClient, block, cliconfig.Config().Traverse()-1)
 
 	return nil
 }
 
-func (a *queryBlockAction) traverse(chain apifabclient.Channel, currentBlock *fabricCommon.Block, num int) error {
+func (a *queryBlockAction) traverse(ledgerClient *ledger.Client, currentBlock *fabricCommon.Block, num int) error {
 	if num <= 0 {
 		return nil
 	}
 
-	block, err := chain.QueryBlockByHash(currentBlock.Header.PreviousHash)
+	block, err := ledgerClient.QueryBlockByHash(currentBlock.Header.PreviousHash)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (a *queryBlockAction) traverse(chain apifabclient.Channel, currentBlock *fa
 	a.Printer().PrintBlock(block)
 
 	if block.Header.PreviousHash != nil {
-		return a.traverse(chain, block, num-1)
+		return a.traverse(ledgerClient, block, num-1)
 	}
 	return nil
 }
