@@ -9,12 +9,13 @@ package invoketask
 import (
 	"time"
 
-	"github.com/hyperledger/fabric-sdk-go/api/apifabclient"
-	"github.com/hyperledger/fabric-sdk-go/api/apitxn"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/core"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/invokeerror"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/responsefilter"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/executor"
@@ -24,7 +25,7 @@ import (
 // Task is a Task that invokes a chaincode
 type Task struct {
 	executor      *executor.Executor
-	channelClient apitxn.ChannelClient
+	channelClient *channel.Client
 	id            string
 	ccID          string
 	args          *action.ArgStruct
@@ -39,7 +40,7 @@ type Task struct {
 }
 
 // New returns a new Task
-func New(id string, channelClient apitxn.ChannelClient, ccID string, args *action.ArgStruct,
+func New(id string, channelClient *channel.Client, ccID string, args *action.ArgStruct,
 	executor *executor.Executor, maxAttempts int, resubmitDelay time.Duration, verbose bool,
 	p printer.Printer, callback func(err error)) *Task {
 	return &Task{
@@ -101,48 +102,42 @@ func (t *Task) doInvoke() error {
 	cliconfig.Config().Logger().Debugf("(%s) - Invoking chaincode: %s, function: %s, args: %+v. Attempt #%d...\n",
 		t.id, t.ccID, t.args.Func, t.args.Args, t.attempt)
 
-	txStatusEvents := make(chan apitxn.ExecuteTxResponse)
-	txnID, err := t.channelClient.ExecuteTxWithOpts(
-		apitxn.ExecuteTxRequest{
+	txResponse := make(chan channel.Response)
+	response, err := t.channelClient.Execute(
+		channel.Request{
 			ChaincodeID: t.ccID,
 			Fcn:         t.args.Func,
 			Args:        utils.AsBytes(t.args.Args),
-		},
-		apitxn.ExecuteTxOpts{
-			TxFilter: responsefilter.New(t.verbose, t.printer),
-			Notifier: txStatusEvents,
-			// ProposalProcessors: asProposalProcessors(t.targets),
-			Timeout: cliconfig.Config().Timeout(),
 		},
 	)
 	if err != nil {
 		return invokeerror.Errorf(invokeerror.TransientError, "SendTransactionProposal return error: %v", err)
 	}
 
-	t.txID = txnID.ID
+	t.txID = string(response.TransactionID)
 
-	cliconfig.Config().Logger().Debugf("(%s) - Committing transaction - TxID [%s] ...\n", t.id, txnID.ID)
+	cliconfig.Config().Logger().Debugf("(%s) - Committing transaction - TxID [%s] ...\n", t.id, response.TransactionID)
 
 	select {
-	case s := <-txStatusEvents:
-		switch s.TxValidationCode {
+	case s := <-txResponse:
+		switch pb.TxValidationCode(s.TxValidationCode) {
 		case pb.TxValidationCode_VALID:
-			cliconfig.Config().Logger().Debugf("(%s) - Successfully committed transaction [%s] ...\n", t.id, txnID.ID)
+			cliconfig.Config().Logger().Debugf("(%s) - Successfully committed transaction [%s] ...\n", t.id, response.TransactionID)
 			return nil
 		case pb.TxValidationCode_DUPLICATE_TXID, pb.TxValidationCode_MVCC_READ_CONFLICT, pb.TxValidationCode_PHANTOM_READ_CONFLICT:
-			cliconfig.Config().Logger().Debugf("(%s) - Transaction commit failed for [%s] with code [%s]. This is most likely a transient error.\n", t.id, txnID.ID, s.TxValidationCode)
-			return invokeerror.Wrapf(invokeerror.TransientError, s.Error, "invoke Error received from eventhub for TxID [%s]. Code: %s", txnID.ID, s.TxValidationCode)
+			cliconfig.Config().Logger().Debugf("(%s) - Transaction commit failed for [%s] with code [%s]. This is most likely a transient error.\n", t.id, response.TransactionID, s.TxValidationCode)
+			return invokeerror.Wrapf(invokeerror.TransientError, errors.New("Duplicate TxID"), "invoke Error received from eventhub for TxID [%s]. Code: %s", response.TransactionID, s.TxValidationCode)
 		default:
-			cliconfig.Config().Logger().Debugf("(%s) - Transaction commit failed for [%s] with code [%s].\n", t.id, txnID.ID, s.TxValidationCode)
-			return invokeerror.Wrapf(invokeerror.PersistentError, s.Error, "invoke Error received from eventhub for TxID [%s]. Code: %s", txnID.ID, s.TxValidationCode)
+			cliconfig.Config().Logger().Debugf("(%s) - Transaction commit failed for [%s] with code [%s].\n", t.id, response.TransactionID, s.TxValidationCode)
+			return invokeerror.Wrapf(invokeerror.PersistentError, errors.New("error"), "invoke Error received from eventhub for TxID [%s]. Code: %s", response.TransactionID, s.TxValidationCode)
 		}
-	case <-time.After(cliconfig.Config().Timeout()):
-		return invokeerror.Errorf(invokeerror.TimeoutOnCommit, "timed out waiting to receive block event for TxID [%s]", txnID.ID)
+	case <-time.After(cliconfig.Config().Timeout(core.Execute)):
+		return invokeerror.Errorf(invokeerror.TimeoutOnCommit, "timed out waiting to receive block event for TxID [%s]", response.TransactionID)
 	}
 }
 
-func asProposalProcessors(peers []apifabclient.Peer) []apitxn.ProposalProcessor {
-	targets := make([]apitxn.ProposalProcessor, len(peers))
+func asProposalProcessors(peers []fab.Peer) []fab.ProposalProcessor {
+	targets := make([]fab.ProposalProcessor, len(peers))
 	for i, p := range peers {
 		targets[i] = p
 	}

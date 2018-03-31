@@ -8,23 +8,7 @@
 # blockchain network that are necessary for the applications to interact with it. These are all
 # knowledge that must be acquired from out-of-band sources. This file provides such a source.
 #
-name: "global-trade-network"
 
-#
-# Any properties with an "x-" prefix will be treated as application-specific, exactly like how naming
-# in HTTP headers or swagger properties work. The SDK will simply ignore these fields and leave
-# them for the applications to process. This is a mechanism for different components of an application
-# to exchange information that are not part of the standard schema described below. In particular,
-# the "x-type" property with the "hlfv1" value example below is used by Hyperledger Composer to
-# determine the type of Fabric networks (v0.6 vs. v1.0) it needs to work with.
-#
-x-type: "hlfv1"
-x-loggingLevel: info
-
-#
-# Describe what the target network is/does.
-#
-description: "The network to be in if you want to stay in the global trade business"
 
 #
 # Schema version of the content. Used by the SDK to apply the corresponding parsing rules.
@@ -38,46 +22,60 @@ client:
 
   # Which organization does this application instance belong to? The value must be the name of an org
   # defined under "organizations"
-  organization: Org1
+  organization: org1
 
   logging:
-    level: error
+    level: info
 
-
-  # Global configuration for peer, event service and orderer timeouts
+# Global configuration for peer, event service and orderer timeouts
   peer:
     timeout:
-      connection: 10s
-      queryResponse: 20s
-      executeTxResponse: 30s
+      response: 40s
+      connection: 3s
+      discovery:
+        # Expiry period for discovery service greylist filter
+        # The channel client will greylist peers that are found to be offline
+        # to prevent re-selecting them in subsequent retries.
+        # This interval will define how long a peer is greylisted
+        greylistExpiry: 5s
   eventService:
+    # Event service type (deliver|eventhub) - default: deliver
+    # NOTE: This is temporary until the SDK starts making use of channel capabilities
+    type: deliver
     timeout:
-      connection: 10s
-      registrationResponse: 20s
+      connection: 3s
+      registrationResponse: 10s
   orderer:
     timeout:
-      connection: 10s
-      response: 30s
+      connection: 3s
+      response: 10s
+  global:
+    timeout:
+      query: 45s
+      execute: 60s
+      resmgmt: 60s
+    cache:
+      connectionIdle: 30s
+      eventServiceIdle: 2m
+      channelConfig: 60s
+      channelMembership: 30s
 
-  # Needed to load users crypto keys and certs.
+  # Root of the MSP directories with keys and certs.
   cryptoconfig:
-    path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/channel/crypto-config
+    path: $GOPATH/src/github.com/securekey/fabric-examples/${CRYPTOCONFIG_FIXTURES_PATH}
 
   # Some SDKs support pluggable KV stores, the properties under "credentialStore"
   # are implementation specific
   credentialStore:
-    # [Optional]. Not used by Go SDK. Others SDKs may use it if using an alternative impl
-    # Could be used if SDK would require an object for properties like url, db name, etc.
-    path: "/tmp/hfc-kvs"
+    # [Optional]. Used by user store. Not needed if all credentials are embedded in configuration
+    # and enrollments are performed elswhere.
+    path: "/tmp/state-store"
 
     # [Optional]. Specific to the CryptoSuite implementation used by GO SDK. Software-based implementations
     # requiring a key store. PKCS#11 based implementations does not.
     cryptoStore:
       # Specific to the underlying KeyValueStore that backs the crypto key store.
       path: /tmp/msp
-
-    # [Optional]. Specific to Composer environment. Not used by SDK Go.
-    wallet: wallet-name
 
    # BCCSP config for the client. Used by GO SDK.
   BCCSP:
@@ -89,6 +87,17 @@ client:
      softVerify: true
      ephemeral: false
      level: 256
+
+  tlsCerts:
+    # [Optional]. Use system certificate pool when connecting to peers, orderers (for negotiating TLS) Default: false
+    systemCertPool: false
+
+    # [Optional]. Client key and cert for TLS handshake with peers and orderers
+    client:
+      key:
+        path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/config/mutual_tls/client_sdk_go-key.pem
+      cert:
+        path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/config/mutual_tls/client_sdk_go.pem
 
 #
 # [Optional]. But most apps would have this section so that channel objects can be constructed
@@ -127,29 +136,74 @@ channels:
         # Default: true
         eventSource: true
 
+    # [Optional]. The application can use these options to perform channel operations like retrieving channel
+    # config etc.
+    policies:
+      #[Optional] options for retrieving channel configuration blocks
+      queryChannelConfig:
+        #[Optional] min number of success responses (from targets/peers)
+        minResponses: 1
+        #[Optional] channel config will be retrieved for these number of random targets
+        maxTargets: 1
+        #[Optional] retry options for query config block
+        retryOpts:
+          #[Optional] number of retry attempts
+          attempts: 5
+          #[Optional] the back off interval for the first retry attempt
+          initialBackoff: 500ms
+          #[Optional] the maximum back off interval for any retry attempt
+          maxBackoff: 5s
+          #[Optional] he factor by which the initial back off period is exponentially incremented
+          backoffFactor: 2.0
+
+  # multi-org test channel
+  orgchannel:
+
+    orderers:
+      - orderer.example.com
+
+    peers:
+      peer0.org1.example.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+
       peer0.org2.example.com:
         endorsingPeer: true
         chaincodeQuery: true
         ledgerQuery: true
         eventSource: true
 
-    # [Optional]. what chaincodes are expected to exist on this channel? The application can use
-    # this information to validate that the target peers are in the expected state by comparing
-    # this list with the query results of getInstalledChaincodes() and getInstantiatedChaincodes()
-    chaincodes:
-      # the format follows the "canonical name" of chaincodes by fabric code
-      - example02:v1
-      - marbles:1.0
+    # [Optional]. The application can use these options to perform channel operations like retrieving channel
+    # config etc.
+    policies:
+      #[Optional] options for retrieving channel configuration blocks
+      queryChannelConfig:
+        #[Optional] min number of success responses (from targets/peers)
+        minResponses: 1
+        #[Optional] channel config will be retrieved for these number of random targets
+        maxTargets: 1
+        #[Optional] retry options for query config block
+        retryOpts:
+          #[Optional] number of retry attempts
+          attempts: 5
+          #[Optional] the back off interval for the first retry attempt
+          initialBackoff: 500ms
+          #[Optional] the maximum back off interval for any retry attempt
+          maxBackoff: 5s
+          #[Optional] he factor by which the initial back off period is exponentially incremented
+          backoffFactor: 2.0
 
 #
 # list of participating organizations in this network
 #
 organizations:
-  Org1:
+  org1:
     mspid: Org1MSP
 
-    # Needed to load users crypto keys and certs for this org (absolute path or relative to global crypto path, DEV mode)
-    cryptoPath:  peerOrganizations/org1.example.com/users/{userName}@org1.example.com/msp
+    # This org's MSP store (absolute path or relative to client.cryptoconfig)
+    cryptoPath:  peerOrganizations/org1.example.com/users/{username}@org1.example.com/msp
 
     peers:
       - peer0.org1.example.com
@@ -160,36 +214,24 @@ organizations:
     # dynamic certificate management (enroll, revoke, re-enroll). The following section is only for
     # Fabric-CA servers.
     certificateAuthorities:
-      - ca-org1
-
-    # [Optional]. If the application is going to make requests that are reserved to organization
-    # administrators, including creating/updating channels, installing/instantiating chaincodes, it
-    # must have access to the admin identity represented by the private key and signing certificate.
-    # Both properties can be the PEM string or local path to the PEM file. Note that this is mainly for
-    # convenience in development mode, production systems should not expose sensitive information
-    # this way. The SDK should allow applications to set the org admin identity via APIs, and only use
-    # this route as an alternative when it exists.
-    adminPrivateKey:
-      pem: "-----BEGIN PRIVATE KEY----- <etc>"
-    signedCert:
-      path: "/tmp/somepath/signed-cert.pem"
+      - ca.org1.example.com
 
   # the profile will contain public information about organizations other than the one it belongs to.
   # These are necessary information to make transaction lifecycles work, including MSP IDs and
   # peers with a public URL to send transaction proposals. The file will not contain private
   # information reserved for members of the organization, such as admin key and certificate,
   # fabric-ca registrar enroll ID and secret, etc.
-  Org2:
+  org2:
     mspid: Org2MSP
 
-    # Needed to load users crypto keys and certs for this org (absolute path or relative to global crypto path, DEV mode)
-    cryptoPath:  peerOrganizations/org2.example.com/users/{userName}@org2.example.com/msp
+    # This org's MSP store (absolute path or relative to client.cryptoconfig)
+    cryptoPath:  peerOrganizations/org2.example.com/users/{username}@org2.example.com/msp
 
     peers:
       - peer0.org2.example.com
 
     certificateAuthorities:
-      - ca-org2
+      - ca.org2.example.com
 
   # Orderer Org name
   ordererorg:
@@ -197,7 +239,7 @@ organizations:
       mspID: "OrdererOrg"
 
       # Needed to load users crypto keys and certs for this org (absolute path or relative to global crypto path, DEV mode)
-      cryptoPath: ordererOrganizations/example.com/users/{userName}@example.com/msp
+      cryptoPath: ordererOrganizations/example.com/users/{username}@example.com/msp
 
 
 #
@@ -206,46 +248,73 @@ organizations:
 # SDK is implementation specific. Consult each SDK's documentation for its handling of orderers.
 #
 orderers:
-  orderer.example.com:
-    url: grpcs://localhost:7050
+  local.orderer.example.com:
+    url: localhost:7050
 
     # these are standard properties defined by the gRPC library
     # they will be passed in as-is to gRPC client constructor
     grpcOptions:
       ssl-target-name-override: orderer.example.com
-      grpc-max-send-message-length: 15
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
 
     tlsCACerts:
       # Certificate location absolute path
-      path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/channel/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+      path: $GOPATH/src/github.com/securekey/fabric-examples/${CRYPTOCONFIG_FIXTURES_PATH}/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
 
 #
 # List of peers to send various requests to, including endorsement, query
 # and event listener registration.
 #
 peers:
-  peer0.org1.example.com:
+  local.peer0.org1.example.com:
     # this URL is used to send endorsement and query requests
-    url: grpcs://localhost:7051
-
-    # this URL is used to connect the EventHub and registering event listeners
-    eventUrl: grpcs://localhost:7053
+    #url: peer0.org1.example.com:7051
+    url: peer0.org1.example.com:7051
+    # eventUrl is only needed when using eventhub (default is delivery service)
+    eventUrl:
 
     grpcOptions:
-      ssl-target-name-override: peer0.org1.example.com
-      grpc.http2.keepalive_time: 15
+      ssl-target-name-override:
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
 
     tlsCACerts:
       # Certificate location absolute path
-      path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/channel/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
+      path: $GOPATH/src/github.com/securekey/fabric-examples/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
 
-  peer0.org2.example.com:
-    url: grpcs://localhost:8051
-    eventUrl: grpcs://localhost:8053
+  local.peer0.org2.example.com:
+    url: peer0.org2.example.com:8051
+    # eventUrl is only needed when using eventhub (default is delivery service)
+    eventUrl:
     grpcOptions:
-      ssl-target-name-override: peer0.org2.example.com
+      ssl-target-name-override:
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
     tlsCACerts:
-      path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/channel/crypto-config/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
+      path: $GOPATH/src/github.com/securekey/fabric-examples/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
 
 #
 # Fabric-CA is a special kind of Certificate Authority provided by Hyperledger Fabric which allows
@@ -253,19 +322,17 @@ peers:
 # Certificate Authority instead of Fabric-CA, in which case this section would not be specified.
 #
 certificateAuthorities:
-  ca-org1:
-    url: https://localhost:7054
-    # the properties specified under this object are passed to the 'http' client verbatim when
-    # making the request to the Fabric-CA server
-    httpOptions:
-      verify: true
+  local.ca.org1.example.com:
+    url: https://ca.org1.example.com:7054
     tlsCACerts:
       # Comma-Separated list of paths
-      path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/certs/ca_root.pem
+      path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/fabricca/tls/certs/ca_root.pem
       # Client key and cert for SSL handshake with Fabric CA
       client:
-       keyfile: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/certs/client/client_fabric_client-key.pem
-       certfile: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/certs/client/client_fabric_client.pem
+        key:
+          path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/fabricca/tls/certs/client/client_fabric_client-key.pem
+        cert:
+          path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/fabricca/tls/certs/client/client_fabric_client.pem
 
     # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
     # needed to enroll and invoke new users.
@@ -273,20 +340,18 @@ certificateAuthorities:
       enrollId: admin
       enrollSecret: adminpw
     # [Optional] The optional name of the CA.
-    caName: ca-org1
-  ca-org2:
-    url: https://localhost:8054
-    # the properties specified under this object are passed to the 'http' client verbatim when
-    # making the request to the Fabric-CA server
-    httpOptions:
-      verify: true
+    caName: ca.org1.example.com
+  local.ca.org2.example.com:
+    url: https://ca.org2.example.com:8054
     tlsCACerts:
       # Comma-Separated list of paths
-      path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/certs/ca_root.pem
+      path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/fabricca/tls/certs/ca_root.pem
       # Client key and cert for SSL handshake with Fabric CA
       client:
-       keyfile: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/certs/client/client_fabric_client-key.pem
-       certfile: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/tls/fabricca/certs/client/client_fabric_client.pem
+        key:
+          path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/fabricca/tls/certs/client/client_fabric_client-key.pem
+        cert:
+          path: $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/fixtures/fabricca/tls/certs/client/client_fabric_client.pem
 
      # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
      # needed to enroll and invoke new users.
@@ -294,4 +359,42 @@ certificateAuthorities:
       enrollId: admin
       enrollSecret: adminpw
     # [Optional] The optional name of the CA.
-    caName: ca-org2
+    caName: ca.org2.example.com
+
+# EntityMatchers enable substitution of network hostnames with static configurations
+ # so that properties can be mapped. Regex can be used for this purpose
+# UrlSubstitutionExp can be empty which means the same network hostname will be used
+# UrlSubstitutionExp can be given same as mapped peer url, so that mapped peer url can be used
+# UrlSubstitutionExp can have golang regex matchers like $1.local.example.$2:$3 for pattern
+ # like peer0.org1.example.com:1234 which converts peer0.org1.example.com to peer0.org1.local.example.com:1234
+# EventUrlSubstitutionExp and sslTargetOverrideUrlSubstitutionExp follow in the same lines as
+ # SubstitutionExp for the fields eventUrl and gprcOptions.ssl-target-name-override respectively
+# In any case mappedHost's config will be used, so mapped host cannot be empty, if entityMatchers are used
+entityMatchers:
+  peer:
+    - pattern: (\w+).org1.example.(\w+)
+      urlSubstitutionExp: localhost:7051
+      eventUrlSubstitutionExp:
+      sslTargetOverrideUrlSubstitutionExp: peer0.org1.example.com
+      mappedHost: local.peer0.org1.example.com
+
+    - pattern: (\w+).org2.example.(\w+)
+      urlSubstitutionExp: localhost:8051
+      eventUrlSubstitutionExp:
+      sslTargetOverrideUrlSubstitutionExp: peer0.org2.example.com
+      mappedHost: local.peer0.org2.example.com
+
+  orderer:
+    - pattern: (\w+).example.(\w+)
+      urlSubstitutionExp: localhost:7050
+      sslTargetOverrideUrlSubstitutionExp: orderer.example.com
+      mappedHost: local.orderer.example.com
+
+  certificateAuthorities:
+    - pattern: (\w+).org1.example.(\w+)
+      urlSubstitutionExp:
+      mappedHost: local.ca.org1.example.com
+
+    - pattern: (\w+).org2.example.(\w+)
+      urlSubstitutionExp:
+      mappedHost: local.ca.org2.example.com
