@@ -9,7 +9,8 @@ package event
 import (
 	"fmt"
 
-	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/event"
+	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
@@ -53,24 +54,32 @@ func newlistenBlockAction(flags *pflag.FlagSet) (*listenBlockAction, error) {
 }
 
 func (a *listenBlockAction) invoke() error {
-	eventHub, err := a.EventHub()
+	eventHub, err := a.EventClient(event.WithBlockEvents())
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Registering block event\n")
 
-	callback := func(block *fabricCommon.Block) {
-		a.Printer().PrintBlock(block)
-		fmt.Println("Press <enter> to terminate")
+	breg, beventch, err := eventHub.RegisterBlockEvent()
+	if err != nil {
+		return errors.WithMessage(err, "Error registering for block events")
 	}
+	defer eventHub.Unregister(breg)
 
-	eventHub.RegisterBlockEvent(callback)
-
-	a.WaitForEnter()
-
-	fmt.Printf("Unregistering block event\n")
-	eventHub.UnregisterBlockEvent(callback)
+	enterch := a.WaitForEnter()
+	for {
+		select {
+		case _, _ = <-enterch:
+			return nil
+		case event, ok := <-beventch:
+			if !ok {
+				return errors.WithMessage(err, "unexpected closed channel while waiting for block event")
+			}
+			a.Printer().PrintBlock(event.Block)
+			fmt.Println("Press <enter> to terminate")
+		}
+	}
 
 	return nil
 }

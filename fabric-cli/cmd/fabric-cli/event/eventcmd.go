@@ -27,6 +27,7 @@ func Cmd() *cobra.Command {
 	eventCmd.AddCommand(getListenCCCmd())
 	eventCmd.AddCommand(getListenTXCmd())
 	eventCmd.AddCommand(getListenBlockCmd())
+	eventCmd.AddCommand(getListenFilteredBlockCmd())
 
 	return eventCmd
 }

@@ -27,6 +27,7 @@ Chaincode:
 Events:
 
 - Listen Block - Listens for block events and displays the block when a new block is created
+- Listen Filtered Block - Listens for filtered block events and displays the filtered block when a new block is created
 - Listen TX - Listens for transaction events
 - Listen CC - Listens for chaincode events for a specified chaincode
 
@@ -34,26 +35,84 @@ Events:
 
 Navigate to folder cmd/fabric-cli. (If you don't have dep installed then you can get here: https://github.com/golang/dep.)
 
-Populate the vendor folder:
+Populate generated files (not included in git):
 
-$ dep ensure
+```$ make populate
+```
 
 Run the client:
 
-$ go run fabric-cli.go <command> <sub-command> [options]
+```$ go run fabric-cli.go <command> <sub-command> [options]
+```
 
 To display the available commands/options:
 
-$ go run fabric-cli.go
+```$ go run fabric-cli.go
+```
 
 ## Compatability
 
 This example is compatible with the following Hyperledger Fabric/SDK commit levels:
 
-- fabric: v1.1.0 prerelease
-- fabric-sdk-go: master:d3dc31289b555b5a01d74aad135a0c92d268d374
+- fabric: v1.1.0
+- fabric-sdk-go: master:fda0d9a039dd3afc034e970023e51cd7690bb6d7
 
-## Sample Usage
+### Quick Tour
+
+Start the example HLF network locally
+
+```$ make example-network
+```
+
+Open another shell and go to the CLI directory
+
+```$ cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
+```
+
+Create channel 'mychannel'
+
+```$ go run fabric-cli.go channel create --cid mychannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.1/channel/mychannel.tx --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+Join all peers to channel 'mychannel'
+
+```$ go run fabric-cli.go channel join --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+Install ExampleCC chaincode on all peers
+
+```$ go run fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/example_cc --ccid=ExampleCC --v v0 --gopath ../../test/fixtures/testgopath --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+Instantiate ExampleCC chaincode with endorsement policy AND('Org1MSP.member','Org2MSP.member')
+
+```$ go run fabric-cli.go chaincode instantiate --cid mychannel --ccp=github.com/example_cc --ccid ExampleCC --v v0 --args '{"Args":["A","1","B","2"]}' --policy "AND('Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+Query ExampleCC chaincode on a set of peers
+
+```$ go run fabric-cli.go chaincode query --ccid ExampleCC --args '{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+Listen for block events (output in JSON):
+
+```$ go run fabric-cli.go event listenblock --format json --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+Then invoke ExampleCC chaincode in another shell and observe block events in the first shell.
+
+```$ cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
+$ go run fabric-cli.go chaincode invoke --ccid=ExampleCC --args '{"Func":"move","Args":["A","B","1"]}' --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+To clean up example network artifacts run
+
+```$ make example-network-clean
+```
+
+and follow instructions. This process is not yet automated.
+
+## CLI examples
 
 ### Channel
 
@@ -83,7 +142,7 @@ $ go run fabric-cli.go query info --cid mychannel
 
 $ go run fabric-cli.go query block --cid mychannel --num 0
 
-#### Query block by hash:
+#### Query block by hash (replace the example hash with a valid hash, e.g. using the output from query info):
 
 $ go run fabric-cli.go query block --cid mychannel --hash MKUvwa85E7OvITqBZYmf8yn9QIS5eZkal2xLTleK2AA
 
@@ -91,7 +150,7 @@ $ go run fabric-cli.go query block --cid mychannel --hash MKUvwa85E7OvITqBZYmf8y
 
 $ go run fabric-cli.go query block --cid mychannel --num 0 --format json
 
-#### Query transaction:
+#### Query transaction (replace txid with a valid transaction, e.g. using the output from query block):
 
 $ go run fabric-cli.go query tx --cid mychannel --txid 29bd4fd03e657da488acfa8ae1740eebf4a6ee81399bfc501f192cb407d2328c
 
@@ -174,6 +233,14 @@ $ go run fabric-cli.go chaincode invoke --ccid=somecc --args='[{"Func":"add","Ar
 
 $ go run fabric-cli.go event listenblock --format json
 
+#### Listen for filtered block events (output in JSON):
+
+$ go run fabric-cli.go event listenfilteredblock --format json
+
 #### Listen for chaincode events:
 
 $ go run fabric-cli.go event listencc --ccid=somecc --event=someevent
+
+#### Listen for tx event:
+
+$ go run fabric-cli.go event listentx --txid <txid>
