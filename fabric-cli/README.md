@@ -37,17 +37,20 @@ Navigate to folder cmd/fabric-cli. (If you don't have dep installed then you can
 
 Populate generated files (not included in git):
 
-```$ make populate
+```
+$ make populate
 ```
 
 Run the client:
 
-```$ go run fabric-cli.go <command> <sub-command> [options]
+```
+$ go run fabric-cli.go <command> <sub-command> [options]
 ```
 
 To display the available commands/options:
 
-```$ go run fabric-cli.go
+```
+$ go run fabric-cli.go
 ```
 
 ## Compatability
@@ -61,53 +64,63 @@ This example is compatible with the following Hyperledger Fabric/SDK commit leve
 
 Start the example HLF network locally
 
-```$ make example-network
+```
+$ make example-network
 ```
 
 Open another shell and go to the CLI directory
 
-```$ cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
+```
+$ cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
 ```
 
 Create channel 'mychannel'
 
-```$ go run fabric-cli.go channel create --cid mychannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.1/channel/mychannel.tx --config ../../test/fixtures/config/config_test_local.yaml
+```
+$ go run fabric-cli.go channel create --cid mychannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.1/channel/mychannel.tx --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Join all peers to channel 'mychannel'
 
-```$ go run fabric-cli.go channel join --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
+```
+$ go run fabric-cli.go channel join --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Install ExampleCC chaincode on all peers
 
-```$ go run fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/example_cc --ccid=ExampleCC --v v0 --gopath ../../test/fixtures/testgopath --config ../../test/fixtures/config/config_test_local.yaml
+```
+$ go run fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/example_cc --ccid=ExampleCC --v v0 --gopath ../../test/fixtures/testgopath --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Instantiate ExampleCC chaincode with endorsement policy AND('Org1MSP.member','Org2MSP.member')
 
-```$ go run fabric-cli.go chaincode instantiate --cid mychannel --ccp=github.com/example_cc --ccid ExampleCC --v v0 --args '{"Args":["A","1","B","2"]}' --policy "AND('Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
+```
+$ go run fabric-cli.go chaincode instantiate --cid mychannel --ccp=github.com/example_cc --ccid ExampleCC --v v0 --args '{"Args":["A","1","B","2"]}' --policy "AND('Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Query ExampleCC chaincode on a set of peers
 
-```$ go run fabric-cli.go chaincode query --ccid ExampleCC --args '{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --config ../../test/fixtures/config/config_test_local.yaml
+```
+$ go run fabric-cli.go chaincode query --ccid ExampleCC --args '{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Listen for block events (output in JSON):
 
-```$ go run fabric-cli.go event listenblock --format json --config ../../test/fixtures/config/config_test_local.yaml
+```
+$ go run fabric-cli.go event listenblock --format json --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Then invoke ExampleCC chaincode in another shell and observe block events in the first shell.
 
-```$ cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
+```
+$ cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
 $ go run fabric-cli.go chaincode invoke --ccid=ExampleCC --args '{"Func":"move","Args":["A","B","1"]}' --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 To clean up example network artifacts run
 
-```$ make example-network-clean
+```
+$ make example-network-clean
 ```
 
 and follow instructions. This process is not yet automated.
