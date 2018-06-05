@@ -76,6 +76,9 @@ const (
 
 	// ChannelGroupKey is the name of the channel group
 	ChannelGroupKey = "Channel"
+
+	// CapabilitiesKey is the key for capabilities
+	CapabilitiesKey = "Capabilities"
 )
 
 // Printer is used for printing various data structures
@@ -167,7 +170,7 @@ func (p *BlockPrinter) PrintBlock(block *fabriccmn.Block) {
 
 	p.Element("Data")
 	p.Array("Data")
-	for i, _ := range block.Data.Data {
+	for i := range block.Data.Data {
 		p.Item("Envelope", i)
 		p.PrintEnvelope(utils.ExtractEnvelopeOrPanic(block, i))
 		p.ItemEnd()
@@ -933,6 +936,13 @@ func (p *BlockPrinter) PrintConfigPolicy(policy *fabriccmn.ConfigPolicy) {
 	}
 }
 
+// PrintCapabilities prints capabilities
+func (p *BlockPrinter) PrintCapabilities(capabilities *fabriccmn.Capabilities) {
+	for capability := range capabilities.Capabilities {
+		p.Field("Capability", capability)
+	}
+}
+
 // PrintImplicitMetaPolicy prints an ImplicitMetaPolicy
 func (p *BlockPrinter) PrintImplicitMetaPolicy(impMetaPolicy *fabriccmn.ImplicitMetaPolicy) {
 	p.Field("Rule", impMetaPolicy.Rule)
@@ -1020,7 +1030,7 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case AnchorPeersKey:
 		anchorPeers := &pb.AnchorPeers{}
 		unmarshalOrPanic(value.Value, anchorPeers)
-		p.Element("Anchor Peers:")
+		p.Element("AnchorPeers")
 		p.PrintAnchorPeers(anchorPeers)
 		p.ElementEnd()
 		break
@@ -1028,7 +1038,7 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case MSPKey:
 		mspConfig := &msp.MSPConfig{}
 		unmarshalOrPanic(value.Value, mspConfig)
-		p.Element("MSP Config:")
+		p.Element("MSPConfig")
 		p.PrintMSPConfig(mspConfig)
 		p.ElementEnd()
 		break
@@ -1042,7 +1052,7 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case BatchSizeKey:
 		batchSize := &ab.BatchSize{}
 		unmarshalOrPanic(value.Value, batchSize)
-		p.Element("Batch Size:")
+		p.Element("BatchSize")
 		p.PrintBatchSize(batchSize)
 		p.ElementEnd()
 		break
@@ -1056,7 +1066,7 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case ChannelRestrictionsKey:
 		chRestrictions := &ab.ChannelRestrictions{}
 		unmarshalOrPanic(value.Value, chRestrictions)
-		p.Element("Channel Restrictions:")
+		p.Element("ChannelRestrictions")
 		p.Field("MaxCount", chRestrictions.MaxCount)
 		p.ElementEnd()
 		break
@@ -1064,7 +1074,7 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case ChannelCreationPolicyKey:
 		creationPolicy := &fabriccmn.ConfigPolicy{}
 		unmarshalOrPanic(value.Value, creationPolicy)
-		p.Element("Channel Creation Policy:")
+		p.Element("ChannelCreationPolicy")
 		p.PrintConfigPolicy(creationPolicy)
 		p.ElementEnd()
 		break
@@ -1072,14 +1082,14 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	// case ChainCreationPolicyNamesKey:
 	// 	chainCreationPolicyNames := &ab.ChainCreationPolicyNames{}
 	// 	unmarshalOrPanic(value.Value, chainCreationPolicyNames)
-	// 	p.Print("Chain Creation Policy Names:")
+	// 	p.Print("ChainCreationPolicyNames")
 	// 	p.Field("Names", chainCreationPolicyNames.Names)
 	// 	break
 
 	case HashingAlgorithmKey:
 		hashingAlgorithm := &fabriccmn.HashingAlgorithm{}
 		unmarshalOrPanic(value.Value, hashingAlgorithm)
-		p.Element("Hashing Algorithm:")
+		p.Element("HashingAlgorithm")
 		p.Field("Name", hashingAlgorithm.Name)
 		p.ElementEnd()
 		break
@@ -1087,7 +1097,7 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case BlockDataHashingStructureKey:
 		hashingStructure := &fabriccmn.BlockDataHashingStructure{}
 		unmarshalOrPanic(value.Value, hashingStructure)
-		p.Element("Block Data Hashing Structure:")
+		p.Element("BlockDataHashingStructure")
 		p.Field("Width", hashingStructure.Width)
 		p.ElementEnd()
 		break
@@ -1095,7 +1105,7 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case OrdererAddressesKey:
 		addresses := &fabriccmn.OrdererAddresses{}
 		unmarshalOrPanic(value.Value, addresses)
-		p.Element("Orderer Addresses:")
+		p.Element("OrdererAddresses")
 		p.Field("Addresses", addresses.Addresses)
 		p.ElementEnd()
 		break
@@ -1103,8 +1113,16 @@ func (p *BlockPrinter) PrintConfigValue(name string, value *fabriccmn.ConfigValu
 	case ConsortiumKey:
 		consortium := &fabriccmn.Consortium{}
 		unmarshalOrPanic(value.Value, consortium)
-		p.Element("Consortium:")
+		p.Element("Consortium")
 		p.Field("Name", consortium.Name)
+		p.ElementEnd()
+		break
+
+	case CapabilitiesKey:
+		capabilities := &fabriccmn.Capabilities{}
+		unmarshalOrPanic(value.Value, capabilities)
+		p.Element("Capabilities")
+		p.PrintCapabilities(capabilities)
 		p.ElementEnd()
 		break
 
