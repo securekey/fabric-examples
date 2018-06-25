@@ -40,6 +40,12 @@
   version = "v1.4.7"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  revision = "22bbf0ddf08105dfa364d0a2fa619dfa71014af5"
+
+[[projects]]
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -48,8 +54,8 @@
     "ptypes/duration",
     "ptypes/timestamp"
   ]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/google/certificate-transparency-go"
@@ -77,13 +83,17 @@
     "json/scanner",
     "json/token"
   ]
-  revision = "f40e974e75af4e271d97ce0fc917af5898ae7bda"
+  revision = "ef8a98b0bbce4a65b5aa4c368430a80ddc533168"
 
 [[projects]]
   name = "github.com/hyperledger/fabric-sdk-go"
   packages = [
     "internal/github.com/hyperledger/fabric-ca/api",
     "internal/github.com/hyperledger/fabric-ca/lib",
+    "internal/github.com/hyperledger/fabric-ca/lib/client/credential",
+    "internal/github.com/hyperledger/fabric-ca/lib/client/credential/x509",
+    "internal/github.com/hyperledger/fabric-ca/lib/common",
+    "internal/github.com/hyperledger/fabric-ca/lib/streamer",
     "internal/github.com/hyperledger/fabric-ca/lib/tls",
     "internal/github.com/hyperledger/fabric-ca/sdkpatch/cryptosuitebridge",
     "internal/github.com/hyperledger/fabric-ca/sdkpatch/logbridge",
@@ -93,22 +103,29 @@
     "internal/github.com/hyperledger/fabric/bccsp/signer",
     "internal/github.com/hyperledger/fabric/bccsp/sw",
     "internal/github.com/hyperledger/fabric/bccsp/utils",
+    "internal/github.com/hyperledger/fabric/common/attrmgr",
     "internal/github.com/hyperledger/fabric/common/channelconfig",
     "internal/github.com/hyperledger/fabric/common/crypto",
     "internal/github.com/hyperledger/fabric/common/ledger",
     "internal/github.com/hyperledger/fabric/common/util",
     "internal/github.com/hyperledger/fabric/core/ledger",
+    "internal/github.com/hyperledger/fabric/discovery/client",
     "internal/github.com/hyperledger/fabric/msp",
+    "internal/github.com/hyperledger/fabric/protos/discovery",
+    "internal/github.com/hyperledger/fabric/protos/gossip",
     "internal/github.com/hyperledger/fabric/protos/orderer",
     "internal/github.com/hyperledger/fabric/sdkpatch/cryptosuitebridge",
     "internal/github.com/hyperledger/fabric/sdkpatch/logbridge",
     "pkg/client/channel",
     "pkg/client/channel/invoke",
     "pkg/client/common/discovery",
+    "pkg/client/common/discovery/dynamicdiscovery",
     "pkg/client/common/discovery/greylist",
     "pkg/client/common/discovery/staticdiscovery",
+    "pkg/client/common/filter",
     "pkg/client/common/selection/dynamicselection",
     "pkg/client/common/selection/dynamicselection/pgresolver",
+    "pkg/client/common/selection/fabricselection",
     "pkg/client/common/selection/options",
     "pkg/client/common/selection/staticselection",
     "pkg/client/common/verifier",
@@ -125,9 +142,11 @@
     "pkg/common/providers/core",
     "pkg/common/providers/fab",
     "pkg/common/providers/msp",
+    "pkg/common/providers/test/mockfab",
     "pkg/context",
     "pkg/core/config",
     "pkg/core/config/comm",
+    "pkg/core/config/comm/tls",
     "pkg/core/config/cryptoutil",
     "pkg/core/config/endpoint",
     "pkg/core/config/lookup",
@@ -144,6 +163,7 @@
     "pkg/fab/channel/membership",
     "pkg/fab/chconfig",
     "pkg/fab/comm",
+    "pkg/fab/discovery",
     "pkg/fab/events/api",
     "pkg/fab/events/client",
     "pkg/fab/events/client/dispatcher",
@@ -164,7 +184,6 @@
     "pkg/fab/orderer",
     "pkg/fab/peer",
     "pkg/fab/resource",
-    "pkg/fab/resource/api",
     "pkg/fab/signingmgr",
     "pkg/fab/txn",
     "pkg/fabsdk",
@@ -182,6 +201,7 @@
     "pkg/util/concurrent/lazycache",
     "pkg/util/concurrent/lazyref",
     "pkg/util/pathvar",
+    "pkg/util/test",
     "test/metadata",
     "third_party/github.com/hyperledger/fabric/common/cauthdsl",
     "third_party/github.com/hyperledger/fabric/core/common/ccprovider",
@@ -195,7 +215,7 @@
     "third_party/github.com/hyperledger/fabric/protos/peer",
     "third_party/github.com/hyperledger/fabric/protos/utils"
   ]
-  revision = "fda0d9a039dd3afc034e970023e51cd7690bb6d7"
+  revision = "ed6420081d5d73bef6f88a87718b93e048b4b8e8"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -206,20 +226,20 @@
 [[projects]]
   name = "github.com/magiconair/properties"
   packages = ["."]
-  revision = "c3beff4c2358b44d0493c7dda585e7db7ff28ae6"
-  version = "v1.7.6"
+  revision = "c2353362d570a7bfa228149c62842019201cfb71"
+  version = "v1.8.0"
 
 [[projects]]
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "00c29f56e2386353d58c599509e8dc3801b0d716"
+  revision = "bb74f1db0675b241733089d5a1faa5dd8b0ef57b"
 
 [[projects]]
   name = "github.com/pelletier/go-toml"
   packages = ["."]
-  revision = "acdc4509485b587f5e675510c4f2c63e90ff68a8"
-  version = "v1.1.0"
+  revision = "c01d1270ff3e442a8a57cddc1c92dc1138598194"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -239,8 +259,8 @@
     ".",
     "mem"
   ]
-  revision = "bb8f1927f2a9d3ab41c9340aa034f6b803f4359c"
-  version = "v1.0.2"
+  revision = "787d034dfe70e44075ccc060d346146ef53270ad"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/spf13/cast"
@@ -251,8 +271,8 @@
 [[projects]]
   name = "github.com/spf13/cobra"
   packages = ["."]
-  revision = "a1f051bc3eba734da4772d60e2d677f47cf93ef4"
-  version = "v0.0.2"
+  revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
+  version = "v0.0.3"
 
 [[projects]]
   branch = "master"
@@ -263,20 +283,20 @@
 [[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
-  version = "v1.0.0"
+  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
   name = "github.com/spf13/viper"
   packages = ["."]
-  revision = "8dc2790b029dc41e2b8ff772c63c26adbb1db70d"
+  revision = "15738813a09db5c8e5b60a19d67d3f9bd38da3a4"
 
 [[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
-  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
-  version = "v1.2.1"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [[projects]]
   branch = "master"
@@ -289,27 +309,27 @@
     "pkcs12/internal/rc2",
     "sha3"
   ]
-  revision = "88942b9c40a4c9d203b82b3731787b672d6e809b"
+  revision = "027cca12c2d63e3d62b670d901e8a2c95854feec"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = [
     "context",
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
     "internal/timeseries",
-    "lex/httplex",
     "trace"
   ]
-  revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
+  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
+  revision = "6c888cc515d3ed83fc103cf1d84468aad274b0a7"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -336,7 +356,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "ab0870e398d5dd054b868c0db1481ab029b9a9f2"
+  revision = "32ee49c4dd805befd833990acba36cb75042378c"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -345,6 +365,7 @@
     "balancer",
     "balancer/base",
     "balancer/roundrobin",
+    "channelz",
     "codes",
     "connectivity",
     "credentials",
@@ -365,8 +386,8 @@
     "tap",
     "transport"
   ]
-  revision = "1e2570b1b19ade82d8dbb31bba4e65e9f9ef5b34"
-  version = "v1.11.1"
+  revision = "7a6a684ca69eb4cae85ad0a484f2e531598c047b"
+  version = "v1.12.2"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
@@ -377,6 +398,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dbefdf31dbc5402ef1cdd005f123ff4bc45e150bc98ae421295ab9ea14dabd9b"
+  inputs-digest = "164f9520c8e6ae098297caa74028305ffe201c5c8b1c026d7360bd8be96524f7"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -97,10 +97,14 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	if function == "delete" {
 		// Deletes an entity from its state
 		return t.delete(stub, args)
-	} else if function == "query" {
+	}
+
+	if function == "query" {
 		// queries an entity state
 		return t.query(stub, args)
-	} else if function == "move" {
+	}
+
+	if function == "move" {
 		eventID := "testEvent"
 		if len(args) >= 5 {
 			eventID = args[4]
@@ -109,10 +113,17 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 			return shim.Error("Unable to set CC event: testEvent. Aborting transaction ...")
 		}
 		return t.move(stub, args)
-	} else {
-		return shim.Error(fmt.Sprintf("Unknown function call: %s", function))
 	}
-	return shim.Error("Unknown action, check the first argument, must be one of 'delete', 'query', or 'move'")
+
+	if function == "put" {
+		return t.put(stub, args[1:])
+	}
+
+	if function == "get" {
+		return t.get(stub, args[1:])
+	}
+
+	return shim.Error(fmt.Sprintf("Unknown function call: %s", function))
 }
 
 func (t *SimpleChaincode) move(stub shim.ChaincodeStubInterface, args []string) pb.Response {
@@ -220,6 +231,44 @@ func (t *SimpleChaincode) query(stub shim.ChaincodeStubInterface, args []string)
 	jsonResp := "{\"Name\":\"" + A + "\",\"Amount\":\"" + string(Avalbytes) + "\"}"
 	fmt.Printf("Query Response:%s\n", jsonResp)
 	return shim.Success(Avalbytes)
+}
+
+func (t *SimpleChaincode) put(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	if len(args) != 2 {
+		return shim.Error("Invalid args. Expecting key and value")
+	}
+
+	key := args[0]
+	value := args[1]
+
+	existingValue, err := stub.GetState(key)
+	if err != nil {
+		return shim.Error(fmt.Sprintf("Error getting data for key [%s]: %s", key, err))
+	}
+	if existingValue != nil {
+		value = string(existingValue) + "-" + value
+	}
+
+	if err := stub.PutState(key, []byte(value)); err != nil {
+		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", key, err))
+	}
+
+	return shim.Success([]byte(value))
+}
+
+func (t *SimpleChaincode) get(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	if len(args) != 1 {
+		return shim.Error("Invalid args. Expecting key")
+	}
+
+	key := args[0]
+
+	value, err := stub.GetState(key)
+	if err != nil {
+		return shim.Error(fmt.Sprintf("Error getting data for key [%s]: %s", key, err))
+	}
+
+	return shim.Success([]byte(value))
 }
 
 func main() {

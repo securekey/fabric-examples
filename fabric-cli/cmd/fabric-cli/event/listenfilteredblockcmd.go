@@ -37,7 +37,9 @@ var listenFilteredBlockCmd = &cobra.Command{
 }
 
 func getListenFilteredBlockCmd() *cobra.Command {
-	cliconfig.InitPeerURL(listenFilteredBlockCmd.Flags(), "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
+	flags := listenFilteredBlockCmd.Flags()
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
 	return listenFilteredBlockCmd
 }
 

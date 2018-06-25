@@ -43,6 +43,7 @@ var listenTxCmd = &cobra.Command{
 
 func getListenTXCmd() *cobra.Command {
 	flags := listenTxCmd.Flags()
+	cliconfig.InitChannelID(flags)
 	cliconfig.InitTxID(flags)
 	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
 	return listenTxCmd

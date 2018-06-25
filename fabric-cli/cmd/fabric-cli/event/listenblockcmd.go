@@ -38,7 +38,11 @@ var listenBlockCmd = &cobra.Command{
 }
 
 func getListenBlockCmd() *cobra.Command {
-	cliconfig.InitPeerURL(listenBlockCmd.Flags(), "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
+	flags := listenBlockCmd.Flags()
+	cliconfig.InitChannelID(flags)
+	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. localhost:7051")
+	cliconfig.InitSeekType(flags)
+	cliconfig.InitBlockNum(flags)
 	return listenBlockCmd
 }
 
@@ -54,18 +58,18 @@ func newlistenBlockAction(flags *pflag.FlagSet) (*listenBlockAction, error) {
 }
 
 func (a *listenBlockAction) invoke() error {
-	eventHub, err := a.EventClient(event.WithBlockEvents())
+	eventClient, err := a.EventClient(event.WithBlockEvents(), event.WithSeekType(cliconfig.Config().SeekType()), event.WithBlockNum(cliconfig.Config().BlockNum()))
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Registering block event\n")
 
-	breg, beventch, err := eventHub.RegisterBlockEvent()
+	breg, beventch, err := eventClient.RegisterBlockEvent()
 	if err != nil {
 		return errors.WithMessage(err, "Error registering for block events")
 	}
-	defer eventHub.Unregister(breg)
+	defer eventClient.Unregister(breg)
 
 	enterch := a.WaitForEnter()
 	for {
@@ -80,6 +84,4 @@ func (a *listenBlockAction) invoke() error {
 			fmt.Println("Press <enter> to terminate")
 		}
 	}
-
-	return nil
 }

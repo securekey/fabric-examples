@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/fab/events/deliverclient/seek"
+
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -27,11 +29,17 @@ const (
 	loggerName    = "fabriccli"
 	userStatePath = "/tmp/enroll_user"
 
+	// AutoDetectSelectionProvider indicates that a selection provider is to be automatically determined using channel capabilities
+	AutoDetectSelectionProvider = "auto"
+
 	// StaticSelectionProvider indicates that a static selection provider is to be used for selecting peers for invoke/query commands
 	StaticSelectionProvider = "static"
 
 	// DynamicSelectionProvider indicates that a dynamic selection provider is to be used for selecting peers for invoke/query commands
 	DynamicSelectionProvider = "dynamic"
+
+	// FabricSelectionProvider indicates that the Fabric selection provider is to be used for selecting peers for invoke/query commands
+	FabricSelectionProvider = "fabric"
 )
 
 // Flags
@@ -54,11 +62,11 @@ const (
 
 	OrgIDsFlag        = "orgid"
 	orgIDsDescription = "A comma-separated list of organization IDs"
-	defaultOrgIDs     = "org1,org2"
+	defaultOrgIDs     = ""
 
 	ChannelIDFlag        = "cid"
 	channelIDDescription = "The channel ID"
-	defaultChannelID     = "mychannel"
+	defaultChannelID     = ""
 
 	ChaincodeIDFlag        = "ccid"
 	chaincodeIDDescription = "The Chaincode ID"
@@ -70,7 +78,7 @@ const (
 
 	ConfigFileFlag        = "config"
 	configFileDescription = "The path of the config.yaml file"
-	defaultConfigFile     = "fixtures/config/config_test.yaml"
+	defaultConfigFile     = ""
 
 	PeerURLFlag        = "peer"
 	peerURLDescription = "A comma-separated list of peer targets, e.g. 'grpcs://localhost:7051,grpcs://localhost:8051'"
@@ -94,7 +102,7 @@ const (
 	defaultCertificate     = ""
 
 	ArgsFlag        = "args"
-	argsDescription = "The args in JSON format. Example: {\"Func\":\"function\",\"Args\":[\"arg1\",\"arg2\"]}"
+	argsDescription = `The args in JSON format. Example: {"Func":"function","Args":["arg1","arg2"]}. Note that $rand(N) may be used anywhere within the value of the arg in order to generate a random value between 0 and N. For example {"Func":"function","Args":["arg_$rand(100)","$rand(10)"]}.`
 
 	IterationsFlag        = "iterations"
 	iterationsDescription = "The number of times to invoke the chaincode"
@@ -102,15 +110,19 @@ const (
 
 	SleepFlag            = "sleep"
 	sleepTimeDescription = "The number of milliseconds to sleep between invocations of the chaincode."
-	defaultSleepTime     = "100"
+	defaultSleepTime     = "0"
 
 	TxFileFlag        = "txfile"
 	txFileDescription = "The path of the channel.tx file"
-	defaultTxFile     = "fixtures/channel/mychannel.tx"
+	defaultTxFile     = ""
 
 	ChaincodeEventFlag        = "event"
 	chaincodeEventDescription = "The name of the chaincode event to listen for"
 	defaultChaincodeEvent     = ""
+
+	SeekTypeFlag        = "seek"
+	seekTypeDescription = "The seek type. Possible values: oldest - delivers all blocks from the oldest block; newest - delivers the newest block; from - delivers from the block number as specified by the '--num' flag"
+	defaultSeekType     = string(seek.Newest)
 
 	TxIDFlag        = "txid"
 	txIDDescription = "The transaction ID"
@@ -129,7 +141,7 @@ const (
 	defaultTraverse     = "0"
 
 	ChaincodePolicyFlag        = "policy"
-	chaincodePolicyDescription = "The chaincode policy, e.g. OR('Org1MSP.admin','Org2MSP.admin',AND('Org1MSP.member','Org2MSP.member'))"
+	chaincodePolicyDescription = "The chaincode policy, e.g. OutOf(1,'Org1MSP.admin','Org2MSP.admin',AND('Org3MSP.member','Org4MSP.member'))"
 	defaultChaincodePolicy     = ""
 
 	CollectionConfigFileFlag        = "collconfig"
@@ -150,19 +162,27 @@ const (
 
 	MaxAttemptsFlag        = "attempts"
 	maxAttemptsDescription = "Specifies the maximum number of attempts to be made for a single chaincode invocation request. If >1 then retries will be attempted should transient errors occur."
-	defaultMaxAttempts     = "1"
+	defaultMaxAttempts     = "3"
 
-	ResubmitDelayFlag        = "resubmitdelay"
-	resubmitDelayDescription = "The time (in milliseconds) to wait before resubmitting an invocation after a transient error"
-	defaultResubmitDelay     = "1000"
+	InitialBackoffFlag        = "backoff"
+	initialBackoffDescription = "The initial backoff is the time (in milliseconds) to wait before resubmitting an invocation after a transient error"
+	defaultInitialBackoff     = "1000"
+
+	MaxBackoffFlag        = "maxbackoff"
+	maxBackoffDescription = "The maximum backoff time (in milliseconds)"
+	defaultMaxBackoff     = "5000"
+
+	BackoffFactorFlag        = "backofffactor"
+	backoffFactorDescription = "The factor by which the backoff time is multiplied each time a retry fails. For example, if the initial backoff is 1s and factor is 2 then the next retry will have a backoff of 2s and a subsequent backoff will be 4s up to the maximum backoff"
+	defaultBackoffFactor     = "2"
 
 	VerboseFlag        = "verbose"
 	verboseDescription = "If specified then the transaction proposal responses will be output when iterations > 1, otherwise transaction proposal responses are only output when iterations = 1"
 	defaultVerbosity   = "false"
 
 	SelectionProviderFlag        = "selectprovider"
-	selectionProviderDescription = "The peer selection provider for invoke/query commands. The two possible values are: (1) static - Selects all peers; (2) dynamic - Selects a minimal set of peers according to the endorsement policy for the chaincode."
-	defaultSelectionProvider     = StaticSelectionProvider
+	selectionProviderDescription = "The peer selection provider for invoke/query commands. The possible values are: (1) static - Selects all peers; (2) dynamic - Uses the built-in selection service from the SDK to select a minimal set of peers according to the endorsement policy of the chaincode; (3) fabric - Uses Fabric's Discovery Service to select a minimal set of peers according to the endorsement/collection policy of the chaincode; (4) auto (default) - Automatically determines which selection service to use based on channel capabilities."
+	defaultSelectionProvider     = AutoDetectSelectionProvider
 
 	GoPathFlag        = "gopath"
 	goPathDescription = "GOPATH for chaincode install command. If not set, GOPATH is taken from the environment"
@@ -194,6 +214,7 @@ type options struct {
 	base64               bool
 	args                 string
 	chaincodeEvent       string
+	seekType             string
 	blockHash            string
 	blockNum             uint64
 	traverse             int
@@ -203,7 +224,9 @@ type options struct {
 	printPayloadOnly     bool
 	concurrency          int
 	maxAttempts          int
-	resubmitDelay        int64
+	initialBackoff       int64
+	maxBackoff           int64
+	backoffFactor        float64
 	verbose              bool
 	selectionProvider    string
 	goPath               string
@@ -248,11 +271,13 @@ func InitConfig(flags *pflag.FlagSet) error {
 	return nil
 }
 
+// IsFlagSet indicates whether or not the given flag is set
 func IsFlagSet(name string) bool {
 	_, ok := instance.setFlags[name]
 	return ok
 }
 
+// Provider returns the config provider
 func Provider() core.ConfigProvider {
 	return instance.ConfigProvider
 }
@@ -286,6 +311,9 @@ func InitConfigFile(flags *pflag.FlagSet, defaultValueAndDescription ...string) 
 
 // OrgID specifies the ID of the current organization. If multiple org IDs are specified then the first one is returned.
 func (c *CLIConfig) OrgID() string {
+	if len(c.OrgIDs()) == 0 {
+		return ""
+	}
 	return c.OrgIDs()[0]
 }
 
@@ -360,6 +388,20 @@ func (c *CLIConfig) ChaincodeEvent() string {
 func InitChaincodeEvent(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
 	defaultValue, description := getDefaultValueAndDescription(defaultChaincodeEvent, chaincodeEventDescription, defaultValueAndDescription...)
 	flags.StringVar(&opts.chaincodeEvent, ChaincodeEventFlag, defaultValue, description)
+}
+
+// SeekType the seek type for Deliver Events. Possible values:
+// - Oldest - will deliver all blocks from the oldest block and will continue listening for new blocks
+// - Newest - will deliver the newest block and will continue listening for new blocks
+// - FromBlock - Delivers from the specific block, as specified by the "--num" flag
+func (c *CLIConfig) SeekType() seek.Type {
+	return seek.Type(opts.seekType)
+}
+
+// InitSeekType initializes the seek type from the provided arguments
+func InitSeekType(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultSeekType, seekTypeDescription, defaultValueAndDescription...)
+	flags.StringVar(&opts.seekType, SeekTypeFlag, defaultValue, description)
 }
 
 // ChaincodePath returns the source path of the chaincode to install/instantiate
@@ -646,7 +688,7 @@ func (c *CLIConfig) MaxAttempts() int {
 
 // InitMaxAttempts initializes the 'maxAttempts' flag from the provided arguments
 func InitMaxAttempts(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
-	defaultValue, description := getDefaultValueAndDescription(defaultMaxAttempts, traverseDescription, defaultValueAndDescription...)
+	defaultValue, description := getDefaultValueAndDescription(defaultMaxAttempts, maxAttemptsDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
 		fmt.Printf("Invalid number for %s: %s\n", TimeoutFlag, defaultValue)
@@ -655,21 +697,54 @@ func InitMaxAttempts(flags *pflag.FlagSet, defaultValueAndDescription ...string)
 	flags.IntVar(&opts.maxAttempts, MaxAttemptsFlag, i, description)
 }
 
-// ResubmitDelay returns the time (in milliseconds) to wait
+// InitialBackoff returns the time (in milliseconds) to wait
 // before resubmitting an invocation after a transient error
-func (c *CLIConfig) ResubmitDelay() time.Duration {
-	return time.Duration(opts.resubmitDelay) * time.Millisecond
+func (c *CLIConfig) InitialBackoff() time.Duration {
+	return time.Duration(opts.initialBackoff) * time.Millisecond
 }
 
-// InitResubmitDelay initializes the resumbit delay from the provided arguments
-func InitResubmitDelay(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
-	defaultValue, description := getDefaultValueAndDescription(defaultResubmitDelay, resubmitDelayDescription, defaultValueAndDescription...)
+// InitInitialBackoff initializes the initial backoff from the provided arguments
+func InitInitialBackoff(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultInitialBackoff, initialBackoffDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
 		fmt.Printf("Invalid number for %s: %s\n", TimeoutFlag, defaultValue)
 		i = 1000
 	}
-	flags.Int64Var(&opts.resubmitDelay, ResubmitDelayFlag, int64(i), description)
+	flags.Int64Var(&opts.initialBackoff, InitialBackoffFlag, int64(i), description)
+}
+
+// MaxBackoff returns the number
+func (c *CLIConfig) MaxBackoff() time.Duration {
+	return time.Duration(opts.maxBackoff) * time.Millisecond
+}
+
+// InitMaxBackoff initializes the maximum backoff from the provided arguments
+func InitMaxBackoff(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultMaxBackoff, maxBackoffDescription, defaultValueAndDescription...)
+	i, err := strconv.Atoi(defaultValue)
+	if err != nil {
+		fmt.Printf("Invalid number for %s: %s\n", TimeoutFlag, defaultValue)
+		i = 1000
+	}
+	flags.Int64Var(&opts.maxBackoff, MaxBackoffFlag, int64(i), description)
+}
+
+// BackoffFactor returns the factor by which the backoff time is multiplied each time a retry fails. For example, if the initial
+// backoff is 1s and factor is 2 then the next retry will have a backoff of 2s and a subsequent backoff will be 4s up to the maximum backoff
+func (c *CLIConfig) BackoffFactor() float64 {
+	return opts.backoffFactor
+}
+
+// InitBackoffFactor initializes the backoff factor from the provided arguments
+func InitBackoffFactor(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultBackoffFactor, backoffFactorDescription, defaultValueAndDescription...)
+	i, err := strconv.Atoi(defaultValue)
+	if err != nil {
+		fmt.Printf("Invalid number for %s: %s\n", TimeoutFlag, defaultValue)
+		i = 1000
+	}
+	flags.Float64Var(&opts.backoffFactor, BackoffFactorFlag, float64(i), description)
 }
 
 // Verbose indicates whether or not to print the transaction proposal responses
@@ -709,49 +784,6 @@ func (c *CLIConfig) GoPath() string {
 	}
 	return gopath
 }
-
-// Overrides of fab.Config...
-
-// OrderersConfig returns the configuration of all of the defined orderers
-//func (c *CLIConfig) OrderersConfig() ([]core.OrdererConfig, error) {
-//	overridden := false
-//
-//	configs, err := c.Config.OrderersConfig()
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	defaultConfig := configs[0]
-//
-//	url := defaultConfig.URL
-//
-//	if c.OrdererURL() != "" {
-//		overridden = true
-//		url = c.OrdererURL()
-//	}
-//
-//	certificate := defaultConfig.TLSCACerts.Path
-//	pem := defaultConfig.TLSCACerts.Pem
-//
-//	if opts.certificate != "" {
-//		overridden = true
-//		certificate = c.OrdererTLSCertificate()
-//	}
-//
-//	if !overridden {
-//		return c.ConfigProvider.OrderersConfig()
-//	}
-//
-//	return []fab.OrdererConfig{
-//		fab.OrdererConfig{
-//			URL: url,
-//			TLSCACerts: endpoint.TLSConfig{
-//				Path: certificate,
-//				Pem:  pem,
-//			},
-//		},
-//	}, nil
-//}
 
 // IsLoggingEnabledFor indicates whether the logger is enabled for the given logging level
 func (c *CLIConfig) IsLoggingEnabledFor(level logging.Level) bool {

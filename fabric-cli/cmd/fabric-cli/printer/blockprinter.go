@@ -332,7 +332,6 @@ func (p *BlockPrinter) PrintTxProposalResponse(response *fab.TransactionProposal
 		}
 	} else {
 		p.Field("Endorser", response.Endorser)
-		p.Field("Err", response.Status)
 		p.Field("Status", response.Status)
 		p.Element("ProposalResponse")
 		p.PrintProposalResponse(response.ProposalResponse)
@@ -349,6 +348,14 @@ func (p *BlockPrinter) PrintProposalResponse(response *pb.ProposalResponse) {
 	p.PrintResponse(response.Response)
 	p.ElementEnd()
 	p.Field("Payload", response.Payload)
+
+	prp := &pb.ProposalResponsePayload{}
+	unmarshalOrPanic(response.Payload, prp)
+
+	p.Element("ProposalResponsePayload")
+	p.PrintProposalResponsePayload(prp)
+	p.ElementEnd()
+
 	p.Element("Endorsement")
 	p.PrintEndorsement(response.Endorsement)
 	p.ElementEnd()
@@ -1270,7 +1277,6 @@ func (p *BlockPrinter) PrintOrdererMetadata(metadata *fabriccmn.Metadata) {
 
 // PrintChaincodeDeploymentSpec prints ChaincodeDeploymentSpec
 func (p *BlockPrinter) PrintChaincodeDeploymentSpec(depSpec *pb.ChaincodeDeploymentSpec) {
-	p.Field("EffectiveDate", depSpec.EffectiveDate)
 	p.Element("ChaincodeSpec")
 	p.PrintChaincodeSpec(depSpec.ChaincodeSpec)
 	p.ElementEnd()

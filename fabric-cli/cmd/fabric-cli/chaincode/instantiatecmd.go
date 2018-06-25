@@ -143,16 +143,8 @@ func (a *instantiateAction) newChaincodePolicy() (*common.SignaturePolicyEnvelop
 		return newChaincodePolicy(cliconfig.Config().ChaincodePolicy())
 	}
 
-	// Default policy is 'signed my any member' for all known orgs
-	var mspIDs []string
-	for _, orgID := range cliconfig.Config().OrgIDs() {
-		mspID, err := a.EndpointConfig().MSPID(orgID)
-		if err != nil {
-			return nil, errors.Errorf("Unable to get the MSP ID from org ID %s: %s", orgID, err)
-		}
-		mspIDs = append(mspIDs, mspID)
-	}
-	return cauthdsl.SignedByAnyMember(mspIDs), nil
+	// Default policy is 'signed by any member' for all known orgs
+	return cauthdsl.AcceptAllPolicy, nil
 }
 
 func newChaincodePolicy(policyString string) (*common.SignaturePolicyEnvelope, error) {

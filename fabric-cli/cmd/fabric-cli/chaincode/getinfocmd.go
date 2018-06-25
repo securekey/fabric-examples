@@ -84,7 +84,7 @@ func (action *getInfoAction) invoke() error {
 
 	response, err := channelClient.Query(
 		channel.Request{ChaincodeID: lifecycleSCC, Fcn: "getccdata", Args: args},
-		channel.WithTargetURLs(peer.URL()))
+		channel.WithTargetEndpoints(peer.URL()))
 	if err != nil {
 		return errors.Errorf("error querying for chaincode info: %v", err)
 	}

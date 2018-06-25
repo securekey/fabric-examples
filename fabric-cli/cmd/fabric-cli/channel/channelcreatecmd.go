@@ -67,7 +67,7 @@ func (a *channelCreateAction) invoke() error {
 		return err
 	}
 
-	fmt.Printf("Attempting to create channel: %s\n", cliconfig.Config().ChannelID())
+	fmt.Printf("Attempting to create/update channel: %s\n", cliconfig.Config().ChannelID())
 
 	req := resmgmt.SaveChannelRequest{
 		ChannelID:         cliconfig.Config().ChannelID(),
@@ -75,12 +75,17 @@ func (a *channelCreateAction) invoke() error {
 		SigningIdentities: []msp.SigningIdentity{user},
 	}
 
-	_, err = chMgmtClient.SaveChannel(req)
+	orderer, err := a.RandomOrderer()
 	if err != nil {
-		return errors.Errorf("Error from create channel: %s", err.Error())
+		return err
 	}
 
-	fmt.Printf("Channel created: %s\n", cliconfig.Config().ChannelID())
+	_, err = chMgmtClient.SaveChannel(req, resmgmt.WithOrderer(orderer))
+	if err != nil {
+		return errors.Errorf("Error from save channel: %s", err.Error())
+	}
+
+	fmt.Printf("Channel created/updated: %s\n", cliconfig.Config().ChannelID())
 
 	return nil
 }

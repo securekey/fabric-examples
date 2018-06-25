@@ -8,6 +8,7 @@ package action
 
 import (
 	"encoding/json"
+	"math/rand"
 
 	"github.com/pkg/errors"
 
@@ -71,11 +72,15 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		return err
 	}
 
-	svcPackage, err := newServiceProviderFactory()
-	if err != nil {
-		return err
+	var opts []fabsdk.Option
+	if cliconfig.Config().SelectionProvider() != cliconfig.AutoDetectSelectionProvider {
+		svcPackage, err := newServiceProviderFactory()
+		if err != nil {
+			return err
+		}
+		opts = append(opts, fabsdk.WithServicePkg(svcPackage))
 	}
-	sdk, err := fabsdk.New(cliconfig.Provider(), fabsdk.WithServicePkg(svcPackage))
+	sdk, err := fabsdk.New(cliconfig.Provider(), opts...)
 	if err != nil {
 		return errors.Errorf("Error initializing SDK: %s", err)
 	}
@@ -88,10 +93,7 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 
 	action.endpointConfig = ctx.EndpointConfig()
 
-	networkConfig, err := action.endpointConfig.NetworkConfig()
-	if err != nil {
-		return err
-	}
+	networkConfig := action.endpointConfig.NetworkConfig()
 
 	level := levelFromName(cliconfig.Config().LoggingLevel())
 
@@ -101,10 +103,10 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 
 	var allPeers []fab.Peer
 	allPeersByOrg := make(map[string][]fab.Peer)
-	for orgID, _ := range networkConfig.Organizations {
-		peersConfig, err := action.endpointConfig.PeersConfig(orgID)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get peer configs for org [%s]", orgID)
+	for orgID := range networkConfig.Organizations {
+		peersConfig, ok := action.endpointConfig.PeersConfig(orgID)
+		if !ok {
+			return errors.Errorf("failed to get peer configs for org [%s]", orgID)
 		}
 
 		cliconfig.Config().Logger().Debugf("Peers for org [%s]: %v\n", orgID, peersConfig)
@@ -174,6 +176,7 @@ func (action *Action) Flags() *pflag.FlagSet {
 	return action.flags
 }
 
+// EndpointConfig returns the endpoint configuration
 func (action *Action) EndpointConfig() fab.EndpointConfig {
 	return action.endpointConfig
 }
@@ -184,7 +187,7 @@ func (action *Action) ChannelClient(...channel.ClientOption) (*channel.Client, e
 	if err != nil {
 		return nil, errors.Errorf("error getting user: %s", err)
 	}
-	session, err := action.session(user)
+	session, err := action.context(user)
 	if err != nil {
 		return nil, errors.Errorf("error getting session for user [%s,%s]: %v", user.Identifier().MSPID, user.Identifier().ID, err)
 	}
@@ -222,16 +225,17 @@ func (action *Action) Printer() printer.Printer {
 	return action.printer
 }
 
+// ChannelProvider returns the ChannelProvider
 func (action *Action) ChannelProvider() (context.ChannelProvider, error) {
 	channelID := cliconfig.Config().ChannelID()
 	user, err := action.User()
 	cliconfig.Config().Logger().Debugf("creating channel provider for user [%s] in org [%s]...", user.Identifier().ID, user.Identifier().MSPID)
-	session, err := action.session(user)
+	clientContext, err := action.context(user)
 	if err != nil {
-		return nil, errors.Errorf("error getting session for user [%s,%s]: %v", user.Identifier().MSPID, user.Identifier().ID, err)
+		return nil, errors.Errorf("error getting client context for user [%s,%s]: %v", user.Identifier().MSPID, user.Identifier().ID, err)
 	}
 	channelProvider := func() (context.Channel, error) {
-		return contextImpl.NewChannel(session, channelID)
+		return contextImpl.NewChannel(clientContext, channelID)
 	}
 	return channelProvider, nil
 }
@@ -315,7 +319,7 @@ func (action *Action) ResourceMgmtClientForOrg(orgID string) (*resmgmt.Client, e
 // ClientForUser returns the Channel client for the given user
 func (action *Action) ClientForUser(channelID string, user mspapi.SigningIdentity) (*channel.Client, error) {
 	cliconfig.Config().Logger().Debugf("create resmgmt client for user [%s] in org [%s]...", user.Identifier().ID, user.Identifier().MSPID)
-	session, err := action.session(user)
+	session, err := action.context(user)
 	if err != nil {
 		return nil, errors.Errorf("error getting session for user [%s,%s]: %v", user.Identifier().MSPID, user.Identifier().ID, err)
 	}
@@ -332,7 +336,7 @@ func (action *Action) ClientForUser(channelID string, user mspapi.SigningIdentit
 // ResourceMgmtClientForUser returns the Fabric client for the given user
 func (action *Action) ResourceMgmtClientForUser(user mspapi.SigningIdentity) (*resmgmt.Client, error) {
 	cliconfig.Config().Logger().Debugf("create resmgmt client for user [%s] in org [%s]...", user.Identifier().ID, user.Identifier().MSPID)
-	session, err := action.session(user)
+	session, err := action.context(user)
 	if err != nil {
 		return nil, errors.Errorf("error getting session for user [%s,%s]: %v", user.Identifier().MSPID, user.Identifier().ID, err)
 	}
@@ -346,7 +350,7 @@ func (action *Action) ResourceMgmtClientForUser(user mspapi.SigningIdentity) (*r
 // ChannelMgmtClientForUser returns the Fabric client for the given user
 func (action *Action) ChannelMgmtClientForUser(channelID string, user mspapi.SigningIdentity) (*channel.Client, error) {
 	cliconfig.Config().Logger().Debugf("create channel client for user [%s] in org [%s]...", user.Identifier().ID, user.Identifier().MSPID)
-	session, err := action.session(user)
+	session, err := action.context(user)
 	if err != nil {
 		return nil, errors.Errorf("error getting session for user [%s,%s]: %v", user.Identifier().MSPID, user.Identifier().ID, err)
 	}
@@ -360,7 +364,7 @@ func (action *Action) ChannelMgmtClientForUser(channelID string, user mspapi.Sig
 	return c, nil
 }
 
-func (action *Action) session(user mspapi.SigningIdentity) (context.ClientProvider, error) {
+func (action *Action) context(user mspapi.SigningIdentity) (context.ClientProvider, error) {
 	key := user.Identifier().MSPID + "_" + user.Identifier().ID
 	session := action.sessions[key]
 	if session == nil {
@@ -389,10 +393,8 @@ func (action *Action) OrgID() string {
 
 // GetOrgID returns the organization ID for the given MSP ID
 func (action *Action) GetOrgID(mspID string) (string, error) {
-	networkConfig, err := action.endpointConfig.NetworkConfig()
-	if err != nil {
-		return "", err
-	}
+	networkConfig := action.endpointConfig.NetworkConfig()
+
 	for orgID, orgConfig := range networkConfig.Organizations {
 		if mspID == orgConfig.MSPID {
 			return orgID, nil
@@ -485,18 +487,18 @@ func (action *Action) PeerFromURL(url string) (fab.Peer, bool) {
 
 // Orderers returns all Orderers from the set of configured Orderers
 func (action *Action) Orderers() ([]fab.Orderer, error) {
-	ordererConfigs, err := action.endpointConfig.OrderersConfig()
-	if err != nil {
-		return nil, errors.Errorf("Could not orderer configurations: %s", err)
-	}
+	ordererConfigs := action.endpointConfig.OrderersConfig()
+	ordererURL := cliconfig.Config().OrdererURL()
 
-	orderers := make([]fab.Orderer, len(ordererConfigs))
-	for i, ordererConfig := range ordererConfigs {
-		newOrderer, err := orderer.New(action.endpointConfig, orderer.FromOrdererConfig(&ordererConfig))
-		if err != nil {
-			return nil, errors.WithMessage(err, "creating orderer failed")
+	var orderers []fab.Orderer
+	for _, ordererConfig := range ordererConfigs {
+		if ordererURL == "" || ordererConfig.URL == ordererURL {
+			newOrderer, err := orderer.New(action.endpointConfig, orderer.FromOrdererConfig(&ordererConfig))
+			if err != nil {
+				return nil, errors.WithMessage(err, "creating orderer failed")
+			}
+			orderers = append(orderers, newOrderer)
 		}
-		orderers[i] = newOrderer
 	}
 
 	return orderers, nil
@@ -504,27 +506,14 @@ func (action *Action) Orderers() ([]fab.Orderer, error) {
 
 // RandomOrderer chooses a random Orderer from the set of configured Orderers
 func (action *Action) RandomOrderer() (fab.Orderer, error) {
-
-	ordererConfig, err := action.RandomOrdererConfig()
-	if err != nil {
-		return nil, errors.Errorf("Could not get config for orderer: %s", err)
-	}
-
-	newOrderer, err := orderer.New(action.endpointConfig, orderer.FromOrdererConfig(ordererConfig))
-	if err != nil {
-		return nil, errors.WithMessage(err, "creating orderer failed")
-	}
-
-	return newOrderer, nil
-}
-
-// RandomOrdererConfig returns the configuration of a randomly selected orderer
-func (action *Action) RandomOrdererConfig() (*fab.OrdererConfig, error) {
-	orderers, err := action.endpointConfig.OrderersConfig()
+	orderers, err := action.Orderers()
 	if err != nil {
 		return nil, err
 	}
-	return &orderers[0], nil
+	if len(orderers) == 0 {
+		return nil, errors.New("No orders found")
+	}
+	return orderers[rand.Intn(len(orderers))], nil
 }
 
 // ArgsArray returns an array of args used in chaincode invocations
@@ -572,7 +561,7 @@ func (action *Action) getPeers(allPeers []fab.Peer, peerURLs []string, orgIDs []
 	for _, peer := range allPeers {
 		allPeerURLs = append(allPeerURLs, peer.URL())
 		orgID := action.orgIDByPeer[peer.URL()]
-		if selectAll || containsString(peerURLs, peer.URL()) || containsString(orgIDs, orgID) {
+		if selectAll || containsString(peerURLs, peer.URL()) || len(peerURLs) == 0 && containsString(orgIDs, orgID) {
 			selectedPeers = append(selectedPeers, peer)
 		}
 	}
@@ -586,9 +575,9 @@ func (action *Action) getPeers(allPeers []fab.Peer, peerURLs []string, orgIDs []
 
 // PeerConfig returns the PeerConfig for the first peer in the current org
 func (action *Action) PeerConfig() (*fab.PeerConfig, error) {
-	peersConfig, err := action.endpointConfig.PeersConfig(action.OrgID())
-	if err != nil {
-		return nil, errors.Wrapf(err, "Error reading peers config for %s: %v", action.OrgID())
+	peersConfig, ok := action.endpointConfig.PeersConfig(action.OrgID())
+	if !ok {
+		return nil, errors.Errorf("Error reading peers config for %s: %v", action.OrgID())
 	}
 
 	peer := action.Peer()

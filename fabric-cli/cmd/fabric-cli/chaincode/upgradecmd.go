@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
@@ -61,6 +62,7 @@ func getUpgradeCmd() *cobra.Command {
 	cliconfig.InitChaincodeVersion(flags)
 	cliconfig.InitArgs(flags)
 	cliconfig.InitChaincodePolicy(flags)
+	cliconfig.InitCollectionConfigFile(flags)
 	cliconfig.InitTimeout(flags)
 	return upgradeCmd
 }
@@ -98,12 +100,24 @@ func (a *upgradeAction) invoke() error {
 		return err
 	}
 
+	// Private Data Collection Configuration
+	// - see fixtures/config/pvtdatacollection.json for sample config file
+	var collConfig []*common.CollectionConfig
+	collConfigFile := cliconfig.Config().CollectionConfigFile()
+	if collConfigFile != "" {
+		collConfig, err = getCollectionConfigFromFile(cliconfig.Config().CollectionConfigFile())
+		if err != nil {
+			return errors.Wrapf(err, "error getting private data collection configuration from file [%s]", cliconfig.Config().CollectionConfigFile())
+		}
+	}
+
 	req := resmgmt.UpgradeCCRequest{
-		Name:    cliconfig.Config().ChaincodeID(),
-		Path:    cliconfig.Config().ChaincodePath(),
-		Version: cliconfig.Config().ChaincodeVersion(),
-		Args:    utils.AsBytes(args.Args),
-		Policy:  chaincodePolicy,
+		Name:       cliconfig.Config().ChaincodeID(),
+		Path:       cliconfig.Config().ChaincodePath(),
+		Version:    cliconfig.Config().ChaincodeVersion(),
+		Args:       utils.AsBytes(args.Args),
+		Policy:     chaincodePolicy,
+		CollConfig: collConfig,
 	}
 
 	_, err = resMgmtClient.UpgradeCC(cliconfig.Config().ChannelID(), req, resmgmt.WithTargets(a.Peers()...))
@@ -131,11 +145,11 @@ func (a *upgradeAction) newChaincodePolicy() (*fabricCommon.SignaturePolicyEnvel
 	// Default policy is 'signed my any member' for all known orgs
 	var mspIDs []string
 	for _, orgID := range cliconfig.Config().OrgIDs() {
-		mspID, err := a.EndpointConfig().MSPID(orgID)
-		if err != nil {
-			return nil, errors.Errorf("Unable to get the MSP ID from org ID %s: %s", orgID, err)
+		orgConfig, ok := a.EndpointConfig().NetworkConfig().Organizations[orgID]
+		if !ok {
+			return nil, errors.Errorf("Unable to get the MSP ID from org ID %s", orgID)
 		}
-		mspIDs = append(mspIDs, mspID)
+		mspIDs = append(mspIDs, orgConfig.MSPID)
 	}
 	return cauthdsl.SignedByAnyMember(mspIDs), nil
 }

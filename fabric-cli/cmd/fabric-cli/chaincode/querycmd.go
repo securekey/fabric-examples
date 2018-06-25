@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/querytask"
@@ -85,6 +86,11 @@ func (a *queryAction) query() error {
 		return err
 	}
 
+	var targets []fab.Peer
+	if len(cliconfig.Config().PeerURL()) > 0 || len(cliconfig.Config().OrgIDs()) > 0 {
+		targets = a.Peers()
+	}
+
 	executor := executor.NewConcurrent("Query Chaincode", cliconfig.Config().Concurrency())
 	executor.Start()
 	defer executor.Stop(true)
@@ -101,7 +107,7 @@ func (a *queryAction) query() error {
 		for _, args := range argsArray {
 			taskID++
 			task := querytask.New(
-				strconv.Itoa(taskID), channelClient, &args, a.Printer(), verbose,
+				strconv.Itoa(taskID), channelClient, targets, &args, a.Printer(), verbose, cliconfig.Config().PrintPayloadOnly(),
 
 				func(err error) {
 					defer wg.Done()

@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/invoketask"
@@ -58,7 +60,9 @@ func getInvokeCmd() *cobra.Command {
 	cliconfig.InitPrintPayloadOnly(flags)
 	cliconfig.InitConcurrency(flags)
 	cliconfig.InitMaxAttempts(flags)
-	cliconfig.InitResubmitDelay(flags)
+	cliconfig.InitInitialBackoff(flags)
+	cliconfig.InitMaxBackoff(flags)
+	cliconfig.InitBackoffFactor(flags)
 	cliconfig.InitVerbosity(flags)
 	cliconfig.InitSelectionProvider(flags)
 	return invokeCmd
@@ -94,6 +98,11 @@ func (a *invokeAction) invoke() error {
 	var errs []error
 	success := 0
 
+	var targets []fab.Peer
+	if len(cliconfig.Config().PeerURL()) > 0 || len(cliconfig.Config().OrgIDs()) > 0 {
+		targets = a.Peers()
+	}
+
 	var wg sync.WaitGroup
 	var mutex sync.RWMutex
 	var tasks []*invoketask.Task
@@ -102,13 +111,18 @@ func (a *invokeAction) invoke() error {
 		for _, args := range argsArray {
 			taskID++
 			task := invoketask.New(
-				strconv.Itoa(taskID), channelClient,
+				strconv.Itoa(taskID), channelClient, targets,
 				cliconfig.Config().ChaincodeID(),
 				&args, executor,
-				cliconfig.Config().MaxAttempts(),
-				cliconfig.Config().ResubmitDelay(),
+				retry.Opts{
+					Attempts:       cliconfig.Config().MaxAttempts(),
+					InitialBackoff: cliconfig.Config().InitialBackoff(),
+					MaxBackoff:     cliconfig.Config().MaxBackoff(),
+					BackoffFactor:  cliconfig.Config().BackoffFactor(),
+					RetryableCodes: retry.ChannelClientRetryableCodes,
+				},
 				cliconfig.Config().Verbose() || cliconfig.Config().Iterations() == 1,
-				a.Printer(),
+				cliconfig.Config().PrintPayloadOnly(), a.Printer(),
 
 				func(err error) {
 					defer wg.Done()

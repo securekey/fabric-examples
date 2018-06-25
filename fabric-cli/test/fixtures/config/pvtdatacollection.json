@@ -1,0 +1,14 @@
+[
+    {
+        "name": "coll1",
+        "policy": "OR('Org1MSP.member', 'Org2MSP.member')",
+        "requiredPeerCount": 1,
+        "maxPeerCount": 2
+    },
+    {
+        "name": "coll2",
+        "policy": "OR('Org2MSP.member')",
+        "requiredPeerCount": 0,
+        "maxPeerCount": 2
+    }
+]

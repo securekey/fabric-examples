@@ -75,22 +75,22 @@ func TestJoin_all_peers_to_a_channel(t *testing.T) {
 
 func TestInstall_chaincode_on_all_peers_of_org1(t *testing.T) {
 	header("Install chaincode on all peers of org1")
-	run("fabric-cli.go chaincode install --cid mychannel --orgid org1 --ccp github.com/example_cc --ccid ExampleCC --v v0 --gopath ../fixtures/testgopath --config ../fixtures/config/config_test_local.yaml")
+	run("fabric-cli.go chaincode install --cid mychannel --orgid org1 --ccp github.com/example_cc --ccid ExampleCC --v v0 --gopath ../fixtures/testdata --config ../fixtures/config/config_test_local.yaml")
 }
 
 func TestInstall_chaincode_on_all_peers_of_org2(t *testing.T) {
 	header("Install chaincode on all peers of org2")
-	run("fabric-cli.go chaincode install --cid=mychannel --orgid org2 --ccp=github.com/example_cc --ccid=ExampleCC --v v0 --gopath ../fixtures/testgopath --config ../fixtures/config/config_test_local.yaml")
+	run("fabric-cli.go chaincode install --cid=mychannel --orgid org2 --ccp=github.com/example_cc --ccid=ExampleCC --v v0 --gopath ../fixtures/testdata --config ../fixtures/config/config_test_local.yaml")
 }
 
 func TestInstall_chaincode_on_all_peers(t *testing.T) {
 	header("Install chaincode on all peers")
-	run("fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/example_cc --ccid=ExampleCC --v v0 --gopath ../fixtures/testgopath --config ../fixtures/config/config_test_local.yaml")
+	run("fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/example_cc --ccid=ExampleCC --v v0 --gopath ../fixtures/testdata --config ../fixtures/config/config_test_local.yaml")
 }
 
 func TestInstall_chaincode_on_all_peers_v1(t *testing.T) {
 	header("Install chaincode on all peers")
-	run("fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/example_cc --ccid=ExampleCC --v v1 --gopath ../fixtures/testgopath --config ../fixtures/config/config_test_local.yaml")
+	run("fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/example_cc --ccid=ExampleCC --v v1 --gopath ../fixtures/testdata --config ../fixtures/config/config_test_local.yaml")
 }
 
 //// ********** Instantiate ************ ////

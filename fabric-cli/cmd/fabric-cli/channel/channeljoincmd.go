@@ -65,17 +65,18 @@ func newChannelJoinAction(flags *pflag.FlagSet) (*channelJoinAction, error) {
 func (a *channelJoinAction) invoke() error {
 	fmt.Printf("Attempting to join channel: %s\n", cliconfig.Config().ChannelID())
 
+	var lastErr error
 	for orgID, peers := range a.PeersByOrg() {
-		fmt.Printf("Joining channel %s on org[%s] peers:\n", cliconfig.Config().ChaincodeID(), orgID)
+		fmt.Printf("Joining channel %s on org[%s] peers:\n", cliconfig.Config().ChannelID(), orgID)
 		for _, peer := range peers {
 			fmt.Printf("-- %s\n", peer.URL())
 		}
 		err := a.joinChannel(orgID, peers)
 		if err != nil {
-			return err
+			lastErr = err
 		}
 	}
-	return nil
+	return lastErr
 }
 
 func (a *channelJoinAction) joinChannel(orgID string, peers []fab.Peer) error {
@@ -88,7 +89,12 @@ func (a *channelJoinAction) joinChannel(orgID string, peers []fab.Peer) error {
 		return err
 	}
 
-	err = resMgmtClient.JoinChannel(cliconfig.Config().ChannelID(), resmgmt.WithTargets(peers...))
+	orderer, err := a.RandomOrderer()
+	if err != nil {
+		return err
+	}
+
+	err = resMgmtClient.JoinChannel(cliconfig.Config().ChannelID(), resmgmt.WithTargets(peers...), resmgmt.WithOrderer(orderer))
 	if err != nil {
 		return errors.WithMessage(err, "Could not join channel: %v")
 	}

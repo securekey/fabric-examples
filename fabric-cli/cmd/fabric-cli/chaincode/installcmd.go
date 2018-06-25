@@ -52,7 +52,7 @@ var installCmd = &cobra.Command{
 
 func getInstallCmd() *cobra.Command {
 	flags := installCmd.Flags()
-	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. grpcs://localhost:7051")
+	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to install the chaincode, e.g. localhost:7051")
 	cliconfig.InitChannelID(flags)
 	cliconfig.InitChaincodeID(flags)
 	cliconfig.InitChaincodePath(flags)
@@ -72,6 +72,7 @@ func newInstallAction(flags *pflag.FlagSet) (*installAction, error) {
 }
 
 func (action *installAction) invoke() error {
+	var lastErr error
 	for orgID, peers := range action.PeersByOrg() {
 		fmt.Printf("Installing chaincode %s on org[%s] peers:\n", cliconfig.Config().ChaincodeID(), orgID)
 		for _, peer := range peers {
@@ -79,11 +80,11 @@ func (action *installAction) invoke() error {
 		}
 		err := action.installChaincode(orgID, peers)
 		if err != nil {
-			return err
+			lastErr = err
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func (action *installAction) installChaincode(orgID string, targets []fab.Peer) error {
@@ -112,10 +113,10 @@ func (action *installAction) installChaincode(orgID string, targets []fab.Peer) 
 
 	var errs []error
 	for _, resp := range responses {
-		if resp.Status != http.StatusOK {
-			errs = append(errs, errors.Errorf("installCC returned error from peer %s: %v", resp.Target, resp.Status))
-		} else if resp.Info == "already installed" {
+		if resp.Info == "already installed" {
 			fmt.Printf("Chaincode %s already installed on peer: %s.\n", ccIDVersion, resp.Target)
+		} else if resp.Status != http.StatusOK {
+			errs = append(errs, errors.Errorf("installCC returned error from peer %s: %s", resp.Target, resp.Info))
 		} else {
 			fmt.Printf("...successfuly installed chaincode %s on peer %s.\n", ccIDVersion, resp.Target)
 		}

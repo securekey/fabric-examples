@@ -7,10 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package invoketask
 
 import (
-	"time"
-
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
@@ -25,35 +24,37 @@ import (
 type Task struct {
 	executor      *executor.Executor
 	channelClient *channel.Client
+	targets       []fab.Peer
 	id            string
 	ccID          string
 	args          *action.ArgStruct
-	maxAttempts   int
-	resubmitDelay time.Duration
+	retryOpts     retry.Opts
 	attempt       int
 	lastErr       error
 	callback      func(err error)
 	verbose       bool
 	printer       printer.Printer
 	txID          string
+	payloadOnly   bool
 }
 
 // New returns a new Task
-func New(id string, channelClient *channel.Client, ccID string, args *action.ArgStruct,
-	executor *executor.Executor, maxAttempts int, resubmitDelay time.Duration, verbose bool,
-	p printer.Printer, callback func(err error)) *Task {
+func New(id string, channelClient *channel.Client, targets []fab.Peer, ccID string, args *action.ArgStruct,
+	executor *executor.Executor, retryOpts retry.Opts, verbose bool,
+	payloadOnly bool, p printer.Printer, callback func(err error)) *Task {
 	return &Task{
 		id:            id,
 		channelClient: channelClient,
+		targets:       targets,
 		printer:       p,
 		ccID:          ccID,
 		args:          args,
 		executor:      executor,
-		maxAttempts:   maxAttempts,
+		retryOpts:     retryOpts,
 		callback:      callback,
 		attempt:       1,
-		resubmitDelay: resubmitDelay,
 		verbose:       verbose,
+		payloadOnly:   payloadOnly,
 	}
 }
 
@@ -83,21 +84,26 @@ func (t *Task) doInvoke() error {
 	cliconfig.Config().Logger().Debugf("(%s) - Invoking chaincode: %s, function: %s, args: %+v. Attempt #%d...\n",
 		t.id, t.ccID, t.args.Func, t.args.Args, t.attempt)
 
+	var opts []channel.RequestOption
+	opts = append(opts, channel.WithRetry(t.retryOpts))
+	if len(t.targets) > 0 {
+		opts = append(opts, channel.WithTargets(t.targets...))
+	}
+
 	response, err := t.channelClient.Execute(
 		channel.Request{
 			ChaincodeID: t.ccID,
 			Fcn:         t.args.Func,
 			Args:        utils.AsBytes(t.args.Args),
 		},
-		channel.WithRetry(retry.Opts{
-			Attempts:       t.maxAttempts,
-			InitialBackoff: t.resubmitDelay,
-			MaxBackoff:     t.resubmitDelay,
-			BackoffFactor:  1,
-		}),
+		opts...,
 	)
 	if err != nil {
 		return invokeerror.Errorf(invokeerror.TransientError, "SendTransactionProposal return error: %v", err)
+	}
+
+	if t.verbose {
+		t.printer.PrintTxProposalResponses(response.Responses, t.payloadOnly)
 	}
 
 	t.txID = string(response.TransactionID)
