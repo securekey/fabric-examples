@@ -36,10 +36,8 @@ import (
 )
 
 const (
-	// FIXME: Make configurable
-	defaultUser  = "User1" // pre-enrolled user
-	adminUser    = "admin"
-	ordererOrgID = "ordererorg"
+	defaultUser = "User1" // pre-enrolled user
+	adminUser   = "Admin"
 )
 
 // ArgStruct is used for marshalling arguments to chaincode invocations
@@ -464,15 +462,6 @@ func (action *Action) OrgAdminUser(orgID string) (mspapi.SigningIdentity, error)
 		userName = adminUser
 	}
 	return action.OrgUser(orgID, userName)
-}
-
-// OrdererAdminUser returns the pre-enrolled administrative user for the orderer organization
-func (action *Action) OrdererAdminUser() (mspapi.SigningIdentity, error) {
-	userName := cliconfig.Config().UserName()
-	if userName == "" {
-		userName = adminUser
-	}
-	return action.OrgUser(ordererOrgID, userName)
 }
 
 // PeerFromURL returns the peer for the given URL

@@ -179,6 +179,7 @@
     "pkg/fab/events/service",
     "pkg/fab/events/service/blockfilter",
     "pkg/fab/events/service/dispatcher",
+    "pkg/fab/events/service/mocks",
     "pkg/fab/keyvaluestore",
     "pkg/fab/mocks",
     "pkg/fab/orderer",
@@ -215,7 +216,7 @@
     "third_party/github.com/hyperledger/fabric/protos/peer",
     "third_party/github.com/hyperledger/fabric/protos/utils"
   ]
-  revision = "ed6420081d5d73bef6f88a87718b93e048b4b8e8"
+  revision = "c32f0e14f463dc13cda25eb4446d0135d9944f12"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -242,10 +243,10 @@
   version = "v1.2.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "816c9085562cd7ee03e7f8188a1cfd942858cded"
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -398,6 +399,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "164f9520c8e6ae098297caa74028305ffe201c5c8b1c026d7360bd8be96524f7"
+  inputs-digest = "95a536e5b932a6d366abfee0e13b4d90129c6f21dc575df5c217764bd55fd047"
   solver-name = "gps-cdcl"
   solver-version = 1

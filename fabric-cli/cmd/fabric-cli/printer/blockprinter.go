@@ -603,8 +603,47 @@ func (p *BlockPrinter) PrintFilteredCCAction(action *pb.FilteredChaincodeAction)
 
 // PrintChaincodeActionPayload prints a ChaincodeActionPayload
 func (p *BlockPrinter) PrintChaincodeActionPayload(chaPayload *pb.ChaincodeActionPayload) {
+
+	cpp := &pb.ChaincodeProposalPayload{}
+	err := proto.Unmarshal(chaPayload.ChaincodeProposalPayload, cpp)
+	if err != nil {
+		panic(err)
+	}
+
+	p.Element("ChaincodeProposalPayload")
+	p.PrintChaincodeProposalPayload(cpp)
+	p.ElementEnd()
+
 	p.Element("Action")
 	p.PrintAction(chaPayload.Action)
+	p.ElementEnd()
+}
+
+// PrintChaincodeProposalPayload prints a ChaincodeProposalPayload
+func (p *BlockPrinter) PrintChaincodeProposalPayload(cpp *pb.ChaincodeProposalPayload) {
+	cis := &pb.ChaincodeInvocationSpec{}
+	err := proto.Unmarshal(cpp.Input, cis)
+	if err != nil {
+		panic(err)
+	}
+
+	p.Element("Input")
+	p.PrintChaincodeInvocationSpec(cis)
+	p.ElementEnd()
+
+	p.Array("TransientMap")
+	for key, value := range cpp.TransientMap {
+		p.Item("Key", key)
+		p.Field("Value", value)
+		p.ItemEnd()
+	}
+	p.ArrayEnd()
+}
+
+// PrintChaincodeInvocationSpec prints a ChaincodeProposalPayload
+func (p *BlockPrinter) PrintChaincodeInvocationSpec(cis *pb.ChaincodeInvocationSpec) {
+	p.Element("ChaincodeSpec")
+	p.PrintChaincodeSpec(cis.ChaincodeSpec)
 	p.ElementEnd()
 }
 
@@ -1287,11 +1326,27 @@ func (p *BlockPrinter) PrintChaincodeSpec(ccSpec *pb.ChaincodeSpec) {
 	p.Element("ChaincodeId")
 	p.PrintChaincodeID(ccSpec.ChaincodeId)
 	p.ElementEnd()
+
 	p.Field("Timeout", ccSpec.Timeout)
 	p.Field("Type", ccSpec.Type)
+
 	p.Element("Input")
-	p.Field("Args", ccSpec.Input.Args)
+	p.PrintChaincodeInput(ccSpec.Input)
 	p.ElementEnd()
+}
+
+// PrintChaincodeInput prints ChaincodeInput
+func (p *BlockPrinter) PrintChaincodeInput(ccInput *pb.ChaincodeInput) {
+	p.Array("Args")
+	for i, value := range ccInput.Args {
+		p.ItemValue("Arg", i, value)
+	}
+	p.ArrayEnd()
+	p.Array("Decorations")
+	for key, value := range ccInput.Decorations {
+		p.ItemValue("Decoration", key, value)
+	}
+	p.ArrayEnd()
 }
 
 func getMetadataOrPanic(blockMetaData *fabriccmn.BlockMetadata, index fabriccmn.BlockMetadataIndex) *fabriccmn.Metadata {
