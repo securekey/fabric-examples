@@ -227,6 +227,9 @@ func (action *Action) Printer() printer.Printer {
 func (action *Action) ChannelProvider() (context.ChannelProvider, error) {
 	channelID := cliconfig.Config().ChannelID()
 	user, err := action.User()
+	if err != nil {
+		return nil, err
+	}
 	cliconfig.Config().Logger().Debugf("creating channel provider for user [%s] in org [%s]...", user.Identifier().ID, user.Identifier().MSPID)
 	clientContext, err := action.context(user)
 	if err != nil {
