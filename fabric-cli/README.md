@@ -14,6 +14,8 @@ Query:
 - Tx - Displays the contents of a transaction within a block
 - Channels - Displays all channels for a peer
 - Installed - Displays the chaincodes installed on a peer
+- Peers - Displays the discovered peers on a channel
+- Local Peers - Displays the discovered local peers in an org
 
 Chaincode:
 
@@ -201,6 +203,18 @@ go run fabric-cli.go query channels --peer localhost:7051 --config ../../test/fi
 
 ```bash
 go run fabric-cli.go query installed --peer localhost:7051 --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+#### Query discovered peers on a channel
+
+```bash
+go run fabric-cli.go query peers --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+#### Query discovered peers in an org
+
+```bash
+go run fabric-cli.go query localpeers --orgid org1 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ## Chaincode
