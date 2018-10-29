@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package query
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -24,8 +26,13 @@ var queryInfoCmd = &cobra.Command{
 			cliconfig.Config().Logger().Errorf("Error while initializing queryInfoAction: %v", err)
 			return
 		}
-
 		defer action.Terminate()
+
+		if cliconfig.Config().ChannelID() == "" {
+			fmt.Printf("\nMust specify channel ID\n\n")
+			cmd.HelpFunc()(cmd, args)
+			return
+		}
 
 		err = action.run()
 		if err != nil {

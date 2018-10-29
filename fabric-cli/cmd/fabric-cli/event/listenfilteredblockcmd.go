@@ -9,6 +9,7 @@ package event
 import (
 	"fmt"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/event"
 	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -39,7 +40,9 @@ var listenFilteredBlockCmd = &cobra.Command{
 func getListenFilteredBlockCmd() *cobra.Command {
 	flags := listenFilteredBlockCmd.Flags()
 	cliconfig.InitChannelID(flags)
-	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. grpcs://localhost:7051")
+	cliconfig.InitPeerURL(flags, "", "The URL of the peer on which to listen for events, e.g. localhost:7051")
+	cliconfig.InitSeekType(flags)
+	cliconfig.InitBlockNum(flags)
 	return listenFilteredBlockCmd
 }
 
@@ -55,18 +58,18 @@ func newlistenFilteredBlockAction(flags *pflag.FlagSet) (*listenFilteredBlockAct
 }
 
 func (a *listenFilteredBlockAction) invoke() error {
-	eventHub, err := a.EventClient()
+	eventClient, err := a.EventClient(event.WithSeekType(cliconfig.Config().SeekType()), event.WithBlockNum(cliconfig.Config().BlockNum()))
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Registering filtered block event\n")
 
-	breg, beventch, err := eventHub.RegisterFilteredBlockEvent()
+	breg, beventch, err := eventClient.RegisterFilteredBlockEvent()
 	if err != nil {
 		return errors.WithMessage(err, "Error registering for filtered block events")
 	}
-	defer eventHub.Unregister(breg)
+	defer eventClient.Unregister(breg)
 
 	enterch := a.WaitForEnter()
 	for {
@@ -81,6 +84,4 @@ func (a *listenFilteredBlockAction) invoke() error {
 			fmt.Println("Press <enter> to terminate")
 		}
 	}
-
-	return nil
 }

@@ -223,6 +223,19 @@ func (action *Action) Printer() printer.Printer {
 	return action.printer
 }
 
+// LocalContext creates a new local context
+func (action *Action) LocalContext() (context.Local, error) {
+	user, err := action.User()
+	if err != nil {
+		return nil, errors.Errorf("error getting user: %s", err)
+	}
+	contextProvider, err := action.context(user)
+	if err != nil {
+		return nil, errors.Errorf("error getting context for user [%s,%s]: %v", user.Identifier().MSPID, user.Identifier().ID, err)
+	}
+	return contextImpl.NewLocal(contextProvider)
+}
+
 // ChannelProvider returns the ChannelProvider
 func (action *Action) ChannelProvider() (context.ChannelProvider, error) {
 	channelID := cliconfig.Config().ChannelID()

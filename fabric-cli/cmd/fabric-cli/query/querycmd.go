@@ -29,6 +29,8 @@ func Cmd() *cobra.Command {
 	queryCmd.AddCommand(getQueryTXCmd())
 	queryCmd.AddCommand(getQueryChannelsCmd())
 	queryCmd.AddCommand(getQueryInstalledCmd())
+	queryCmd.AddCommand(getQueryPeersCmd())
+	queryCmd.AddCommand(getQueryLocalPeersCmd())
 
 	return queryCmd
 }

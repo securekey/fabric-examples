@@ -86,6 +86,9 @@ func (t *Task) doInvoke() error {
 
 	var opts []channel.RequestOption
 	opts = append(opts, channel.WithRetry(t.retryOpts))
+	opts = append(opts, channel.WithBeforeRetry(func(err error) {
+		t.attempt++
+	}))
 	if len(t.targets) > 0 {
 		opts = append(opts, channel.WithTargets(t.targets...))
 	}

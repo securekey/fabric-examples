@@ -79,6 +79,8 @@ const (
 
 	// CapabilitiesKey is the key for capabilities
 	CapabilitiesKey = "Capabilities"
+
+	collectionSeparator = "~"
 )
 
 // Printer is used for printing various data structures
@@ -112,6 +114,9 @@ type Printer interface {
 
 	// PrintChaincodeEvent outputs a chaincode event
 	PrintChaincodeEvent(event *fab.CCEvent)
+
+	// PrintPeers outputs the array of Peers
+	PrintPeers(peers []fab.Peer)
 
 	// Print outputs a formatted string
 	Print(frmt string, vars ...interface{})
@@ -217,6 +222,23 @@ func (p *BlockPrinter) PrintChannels(channels []*pb.ChannelInfo) {
 	p.PrintFooter()
 }
 
+func (p *BlockPrinter) PrintPeers(peers []fab.Peer) {
+	if p.Formatter == nil {
+		fmt.Printf("%s\n", peers)
+		return
+	}
+
+	p.PrintHeader()
+	p.Array("Peers")
+	for _, peer := range peers {
+		p.Item("Peer", peer.URL())
+		p.PrintPeer(peer)
+		p.ItemEnd()
+	}
+	p.ArrayEnd()
+	p.PrintFooter()
+}
+
 // PrintChaincodes prints the array of ChaincodeInfo
 func (p *BlockPrinter) PrintChaincodes(chaincodes []*pb.ChaincodeInfo) {
 	if p.Formatter == nil {
@@ -256,7 +278,11 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 	}
 
 	p.PrintHeader()
+	p.doPrintChaincodeData(ccData)
+	p.PrintFooter()
+}
 
+func (p *BlockPrinter) doPrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 	p.Field("Id", ccData.Id)
 	p.Field("Name", ccData.Name)
 	p.Field("Version", ccData.Version)
@@ -280,8 +306,6 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 	p.Element("InstantiationPolicy")
 	p.PrintSignaturePolicyEnvelope(instPolicy)
 	p.ElementEnd()
-
-	p.PrintFooter()
 }
 
 // PrintTxProposalResponses prints the given transaction proposal responses
@@ -562,8 +586,10 @@ func (p *BlockPrinter) PrintFilteredTransaction(tx *pb.FilteredTransaction) {
 	p.Element("ChaincodeEvents")
 	p.Array("ChaincodeEvents")
 	txActions := tx.GetTransactionActions()
-	for _, ccAction := range txActions.ChaincodeActions {
-		p.PrintFilteredCCAction(ccAction)
+	if txActions != nil {
+		for _, ccAction := range txActions.ChaincodeActions {
+			p.PrintFilteredCCAction(ccAction)
+		}
 	}
 	p.ArrayEnd()
 	p.ElementEnd()
@@ -718,7 +744,7 @@ func (p *BlockPrinter) PrintNsReadWriteSet(nsRWSet *rwsetutil.NsRwSet) {
 	p.Field("NameSpace", nsRWSet.NameSpace)
 
 	p.Element("KvRwSet")
-	p.PrintKvRwSet(nsRWSet.KvRwSet)
+	p.PrintKvRwSet(nsRWSet.KvRwSet, nsRWSet.NameSpace)
 	p.ElementEnd()
 
 	p.Element("CollHashedRwSets")
@@ -727,7 +753,7 @@ func (p *BlockPrinter) PrintNsReadWriteSet(nsRWSet *rwsetutil.NsRwSet) {
 }
 
 // PrintKvRwSet prints a key-value read-write set
-func (p *BlockPrinter) PrintKvRwSet(kvRWSet *kvrwset.KVRWSet) {
+func (p *BlockPrinter) PrintKvRwSet(kvRWSet *kvrwset.KVRWSet, namespace string) {
 	p.Array("Reads")
 	for i, r := range kvRWSet.Reads {
 		p.Item("Read", i)
@@ -739,7 +765,11 @@ func (p *BlockPrinter) PrintKvRwSet(kvRWSet *kvrwset.KVRWSet) {
 	p.Array("Writes")
 	for i, w := range kvRWSet.Writes {
 		p.Item("Write", i)
-		p.PrintWrite(w)
+		if namespace == "lscc" {
+			p.PrintLSCCWrite(w)
+		} else {
+			p.PrintWrite(w)
+		}
 		p.ItemEnd()
 	}
 	p.ArrayEnd()
@@ -884,6 +914,25 @@ func (p *BlockPrinter) PrintWrite(w *kvrwset.KVWrite) {
 	p.Field("Key", w.Key)
 	p.Field("IsDelete", w.IsDelete)
 	p.Field("Value", w.Value)
+}
+
+// PrintLSCCWrite prints a key-value write (KVWrite)
+func (p *BlockPrinter) PrintLSCCWrite(w *kvrwset.KVWrite) {
+	p.Field("Key", w.Key)
+	p.Field("IsDelete", w.IsDelete)
+	p.Field("Value", w.Value)
+	if !w.IsDelete && !isCollectionConfigKey(w.Key) {
+		chaincodeData := &ccprovider.ChaincodeData{}
+		if err := proto.Unmarshal(w.Value, chaincodeData); err != nil {
+			fmt.Printf("Error unmarshalling chaincode data from lscc KV WriteSet: %s", err)
+		} else {
+			p.Element("Value_ChaincodeData")
+			p.doPrintChaincodeData(chaincodeData)
+			p.ElementEnd()
+		}
+	} else {
+		p.Field("Value", w.Value)
+	}
 }
 
 // PrintChaincodeResponse prints a response
@@ -1349,6 +1398,17 @@ func (p *BlockPrinter) PrintChaincodeInput(ccInput *pb.ChaincodeInput) {
 	p.ArrayEnd()
 }
 
+// PrintPeer prints the peer
+func (p *BlockPrinter) PrintPeer(peer fab.Peer) {
+	p.Field("URL", peer.URL())
+	p.Field("MSP", peer.MSPID())
+
+	peerState, ok := peer.(fab.PeerState)
+	if ok {
+		p.Field("BlockHeight", peerState.BlockHeight())
+	}
+}
+
 func getMetadataOrPanic(blockMetaData *fabriccmn.BlockMetadata, index fabriccmn.BlockMetadataIndex) *fabriccmn.Metadata {
 	metaData := &fabriccmn.Metadata{}
 	err := proto.Unmarshal(blockMetaData.Metadata[index], metaData)
@@ -1377,4 +1437,9 @@ func Base64URLDecode(data string) ([]byte, error) {
 		return base64.URLEncoding.DecodeString(data)
 	}
 	return base64.RawURLEncoding.DecodeString(data)
+}
+
+// isCollectionConfigKey detects if a key is a collection key
+func isCollectionConfigKey(key string) bool {
+	return strings.Contains(key, collectionSeparator)
 }

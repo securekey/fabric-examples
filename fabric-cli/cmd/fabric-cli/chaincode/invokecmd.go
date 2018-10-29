@@ -8,6 +8,7 @@ package chaincode
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -81,6 +82,7 @@ func newInvokeAction(flags *pflag.FlagSet) (*invokeAction, error) {
 }
 
 func (a *invokeAction) invoke() error {
+	rand.Seed(time.Now().Unix())
 	channelClient, err := a.ChannelClient()
 	if err != nil {
 		return errors.Errorf("Error getting channel client: %v", err)

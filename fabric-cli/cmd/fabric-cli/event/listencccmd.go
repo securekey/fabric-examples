@@ -95,6 +95,4 @@ func (a *listenccAction) invoke() error {
 			fmt.Println("Press <enter> to terminate")
 		}
 	}
-
-	return nil
 }
