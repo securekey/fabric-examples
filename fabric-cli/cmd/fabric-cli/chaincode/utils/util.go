@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -21,14 +22,15 @@ const (
 // If the arg contains the string $rand(n) then $rand(n) is replaced
 // with a random number between 0 and n-1.
 func AsBytes(args []string) [][]byte {
+	rand := rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
 	bytes := make([][]byte, len(args))
 	for i, arg := range args {
-		bytes[i] = []byte(getArg(arg))
+		bytes[i] = []byte(getArg(rand, arg))
 	}
 	return bytes
 }
 
-func getArg(arg string) string {
+func getArg(rand *rand.Rand, arg string) string {
 	if !strings.Contains(arg, randomVar) {
 		return arg
 	}
