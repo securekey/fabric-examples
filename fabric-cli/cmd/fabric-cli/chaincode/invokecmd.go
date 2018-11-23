@@ -95,8 +95,10 @@ func (a *invokeAction) invoke() error {
 	executor.Start()
 	defer executor.Stop(true)
 
-	var errs []error
 	success := 0
+	var errs []error
+	var successDurations []time.Duration
+	var failDurations []time.Duration
 
 	var targets []fab.Peer
 	if len(cliconfig.Config().PeerURL()) > 0 || len(cliconfig.Config().OrgIDs()) > 0 {
@@ -110,6 +112,7 @@ func (a *invokeAction) invoke() error {
 	for i := 0; i < cliconfig.Config().Iterations(); i++ {
 		for _, args := range argsArray {
 			taskID++
+			var startTime time.Time
 			task := invoketask.New(
 				strconv.Itoa(taskID), channelClient, targets,
 				cliconfig.Config().ChaincodeID(),
@@ -124,14 +127,20 @@ func (a *invokeAction) invoke() error {
 				cliconfig.Config().Verbose() || cliconfig.Config().Iterations() == 1,
 				cliconfig.Config().PrintPayloadOnly(), a.Printer(),
 
+				func() {
+					startTime = time.Now()
+				},
 				func(err error) {
+					duration := time.Since(startTime)
 					defer wg.Done()
 					mutex.Lock()
 					defer mutex.Unlock()
 					if err != nil {
 						errs = append(errs, err)
+						failDurations = append(failDurations, duration)
 					} else {
 						success++
+						successDurations = append(successDurations, duration)
 					}
 				})
 			tasks = append(tasks, task)
@@ -199,12 +208,52 @@ func (a *invokeAction) invoke() error {
 		fmt.Printf("\n")
 		fmt.Printf("*** ---------- Summary: ----------\n")
 		fmt.Printf("***   - Invocations:     %d\n", numInvocations)
+		fmt.Printf("***   - Concurrency:     %d\n", cliconfig.Config().Concurrency())
 		fmt.Printf("***   - Successfull:     %d\n", success)
 		fmt.Printf("***   - Total attempts:  %d\n", attempts)
-		fmt.Printf("***   - Duration:        %s\n", duration)
+		fmt.Printf("***   - Duration:        %2.2fs\n", duration.Seconds())
 		fmt.Printf("***   - Rate:            %2.2f/s\n", float64(numInvocations)/duration.Seconds())
+		fmt.Printf("***   - Average:         %2.2fs\n", average(append(successDurations, failDurations...)))
+		fmt.Printf("***   - Average Success: %2.2fs\n", average(successDurations))
+		fmt.Printf("***   - Average Fail:    %2.2fs\n", average(failDurations))
+		fmt.Printf("***   - Min Success:     %2.2fs\n", min(successDurations))
+		fmt.Printf("***   - Max Success:     %2.2fs\n", max(successDurations))
 		fmt.Printf("*** ------------------------------\n")
 	}
 
 	return nil
+}
+
+func average(durations []time.Duration) float64 {
+	if len(durations) == 0 {
+		return 0
+	}
+
+	var total float64
+	for _, duration := range durations {
+		total += duration.Seconds()
+	}
+	return total / float64(len(durations))
+}
+
+func min(durations []time.Duration) float64 {
+	min, _ := minMax(durations)
+	return min
+}
+
+func max(durations []time.Duration) float64 {
+	_, max := minMax(durations)
+	return max
+}
+
+func minMax(durations []time.Duration) (min float64, max float64) {
+	for _, duration := range durations {
+		if min == 0 || min > duration.Seconds() {
+			min = duration.Seconds()
+		}
+		if max == 0 || max < duration.Seconds() {
+			max = duration.Seconds()
+		}
+	}
+	return
 }

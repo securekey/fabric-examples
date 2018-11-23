@@ -338,6 +338,18 @@ go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='[
 go run fabric-cli.go chaincode invoke --cid mychannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$rand(1000)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
+#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and large values
+
+```bash
+go run fabric-cli.go chaincode invoke --cid mychannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$pad(500,X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and random size values
+
+```bash
+go run fabric-cli.go chaincode invoke --cid mychannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$pad($rand(500),X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+```
+
 ## Event
 
 ### Block Events

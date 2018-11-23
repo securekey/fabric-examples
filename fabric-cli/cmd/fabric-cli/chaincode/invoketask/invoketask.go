@@ -31,7 +31,8 @@ type Task struct {
 	retryOpts     retry.Opts
 	attempt       int
 	lastErr       error
-	callback      func(err error)
+	startedCB     func()
+	completedCB   func(err error)
 	verbose       bool
 	printer       printer.Printer
 	txID          string
@@ -41,7 +42,7 @@ type Task struct {
 // New returns a new Task
 func New(id string, channelClient *channel.Client, targets []fab.Peer, ccID string, args *action.ArgStruct,
 	executor *executor.Executor, retryOpts retry.Opts, verbose bool,
-	payloadOnly bool, p printer.Printer, callback func(err error)) *Task {
+	payloadOnly bool, p printer.Printer, startedCB func(), completedCB func(err error)) *Task {
 	return &Task{
 		id:            id,
 		channelClient: channelClient,
@@ -51,7 +52,8 @@ func New(id string, channelClient *channel.Client, targets []fab.Peer, ccID stri
 		args:          args,
 		executor:      executor,
 		retryOpts:     retryOpts,
-		callback:      callback,
+		startedCB:     startedCB,
+		completedCB:   completedCB,
 		attempt:       1,
 		verbose:       verbose,
 		payloadOnly:   payloadOnly,
@@ -71,12 +73,13 @@ func (t *Task) LastError() error {
 
 // Invoke invokes the task
 func (t *Task) Invoke() {
+	t.startedCB()
 	if err := t.doInvoke(); err != nil {
 		t.lastErr = err
-		t.callback(err)
+		t.completedCB(err)
 	} else {
 		cliconfig.Config().Logger().Debugf("(%s) - Successfully invoked chaincode\n", t.id)
-		t.callback(nil)
+		t.completedCB(nil)
 	}
 }
 

@@ -168,6 +168,7 @@ func (a *queryAction) query() error {
 		fmt.Printf("\n")
 		fmt.Printf("*** ---------- Summary: ----------\n")
 		fmt.Printf("***   - Queries:     %d\n", numInvocations)
+		fmt.Printf("***   - Concurrency: %d\n", cliconfig.Config().Concurrency())
 		fmt.Printf("***   - Successfull: %d\n", success)
 		fmt.Printf("***   - Duration:    %s\n", duration)
 		fmt.Printf("***   - Rate:        %2.2f/s\n", float64(numInvocations)/duration.Seconds())
