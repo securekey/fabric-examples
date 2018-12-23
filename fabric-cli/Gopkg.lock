@@ -126,7 +126,7 @@
   revision = "ef8a98b0bbce4a65b5aa4c368430a80ddc533168"
 
 [[projects]]
-  digest = "1:e26db763d1df9228b13f1289f9caf3ae9dac5256bd57e1a1b91d585f556c8de8"
+  digest = "1:891587fc858b87d978efbe301ebb3005cec11d26b9994728ca72708cd9303e20"
   name = "github.com/hyperledger/fabric-sdk-go"
   packages = [
     "internal/github.com/hyperledger/fabric-ca/api",
@@ -265,7 +265,7 @@
     "third_party/github.com/hyperledger/fabric/protos/utils",
   ]
   pruneopts = ""
-  revision = "34bbf26678d30cda3e3e895ca326774732ef49ee"
+  revision = "05ffa0a5ae5db0890341fdec498ccc5e684a6ea5"
 
 [[projects]]
   digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
@@ -589,6 +589,7 @@
     "github.com/pkg/errors",
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
+    "github.com/stretchr/testify/assert",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
