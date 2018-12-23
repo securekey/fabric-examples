@@ -9,21 +9,6 @@
 
 set -e
 
-# TODO - delete example network containers
-#CONTAINERS=$($DOCKER_CMD ps -a -q)
-#if [[ ! -z $CONTAINERS ]]
-#then
-#	$DOCKER_CMD stop $CONTAINERS
-#	$DOCKER_CMD rm $CONTAINERS
-#fi
-
-# TODO - delete examplecc images only
-#EXAMPLE_IMAGES=$($DOCKER_CMD images | grep examplecc)
-#if [[ ! -z $EXAMPLE_IMAGES ]]
-#then
-#	$DOCKER_CMD rmi $EXAMPLE_IMAGES
-#fi
-
-# For now, print how to do it manually
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cat $DIR/readme-example-network-clean.txt
+cd fabric-sdk-go/test/fixtures/dockerenv/
+docker-compose -f docker-compose.yaml -f docker-compose-chaincoded.yaml down
+cd ../../../..
