@@ -9,11 +9,12 @@ package utils
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 )
 
 const (
@@ -57,11 +58,11 @@ func getArg(r *rand.Rand, arg string) string {
 func evaluateRandExpression(r *rand.Rand, arg string) string {
 	return evaluateExpression(arg, randFunc,
 		func(expression string) (string, error) {
-			n, err := strconv.Atoi(expression)
+			n, err := strconv.ParseInt(expression, 10, 64)
 			if err != nil {
 				return "", errors.Errorf("invalid number %s in $rand expression\n", expression)
 			}
-			return strconv.Itoa(r.Intn(n)), nil
+			return strconv.FormatInt(r.Int63n(n), 10), nil
 		})
 }
 
