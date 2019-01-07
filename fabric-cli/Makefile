@@ -51,8 +51,8 @@ clean: example-network-clean
 
 .PHONY: example-network
 example-network:
-	@cd $(FIXTURE_DOCKERENV_PATH) && \
-		$(DOCKER_COMPOSE_CMD) -f docker-compose.yaml -f ./docker-compose-chaincoded.yaml up --force-recreate
+	@cd ./fabric-sdk-go && \
+		make dockerenv-stable-up
 
 .PHONY: example-network-clean
 example-network-clean:

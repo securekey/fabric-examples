@@ -60,7 +60,7 @@ go run fabric-cli.go
 This example is compatible with the following Hyperledger Fabric/SDK commit levels:
 
 - fabric: v1.1.0, v1.2.0, v1.3.0
-- fabric-sdk-go: master:37201e914412e03b048f398ba3cdbf101515f9a3
+- fabric-sdk-go: master:05ffa0a5ae5db0890341fdec498ccc5e684a6ea5
 
 ### Quick Tour
 
