@@ -283,10 +283,10 @@ func (p *jsonFormatter) ItemEnd() {
 }
 
 func (p *jsonFormatter) ItemValue(element string, index interface{}, value interface{}) {
-	if p.commaRequired {
+	p.write("\"%v\"", p.encodeValue(value))
+	if element == "Arg" {
 		p.write(",")
 	}
-	p.write("\"%v\"", p.encodeValue(value))
 }
 
 func (p *jsonFormatter) Value(value interface{}) {

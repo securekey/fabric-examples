@@ -1388,7 +1388,11 @@ func (p *BlockPrinter) PrintChaincodeSpec(ccSpec *pb.ChaincodeSpec) {
 func (p *BlockPrinter) PrintChaincodeInput(ccInput *pb.ChaincodeInput) {
 	p.Array("Args")
 	for i, value := range ccInput.Args {
-		p.ItemValue("Arg", i, value)
+		if i == len(ccInput.Args)-1 {
+			p.ItemValue("EndArg", i, value)
+		} else {
+			p.ItemValue("Arg", i, value)
+		}
 	}
 	p.ArrayEnd()
 	p.Array("Decorations")
