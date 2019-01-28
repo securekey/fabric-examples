@@ -10,6 +10,9 @@ import (
 	"encoding/json"
 	"math/rand"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/core"
+	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk/factory/defcore"
+
 	"github.com/pkg/errors"
 
 	"strings"
@@ -28,6 +31,7 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	mspapi "github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
 	contextImpl "github.com/hyperledger/fabric-sdk-go/pkg/context"
+	cryptosuiteimpl "github.com/hyperledger/fabric-sdk-go/pkg/core/cryptosuite/bccsp/multisuite"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fab/orderer"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
@@ -78,6 +82,9 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		}
 		opts = append(opts, fabsdk.WithServicePkg(svcPackage))
 	}
+	opts = append(opts, fabsdk.WithCorePkg(&cryptoSuiteProviderFactory{}))
+
+
 	sdk, err := fabsdk.New(cliconfig.Provider(), opts...)
 	if err != nil {
 		return errors.Errorf("Error initializing SDK: %s", err)
@@ -615,4 +622,14 @@ func containsString(sarr []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// cryptoSuiteProviderFactory will provide custom cryptosuite (bccsp.BCCSP)
+type cryptoSuiteProviderFactory struct {
+	defcore.ProviderFactory
+}
+
+// CreateCryptoSuiteProvider returns a new default implementation of BCCSP
+func (f *cryptoSuiteProviderFactory) CreateCryptoSuiteProvider(config core.CryptoSuiteConfig) (core.CryptoSuite, error) {
+	return cryptosuiteimpl.GetSuiteByConfig(config)
 }
