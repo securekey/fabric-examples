@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "00c3190b_7035ad54",
+        "filename": "fabric-cli/cmd/fabric-cli/action/action.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 1000044
+      },
+      "writtenOn": "2019-01-28T20:35:44Z",
+      "side": 1,
+      "message": "Does this also work without HSM?",
+      "revId": "4d03d1c1e50f0c3fa0a93d8d671e4f89b2201686",
+      "serverId": "391e9dfb-4ca7-4d02-9d3e-c661eec85686",
+      "unresolved": false
+    }
+  ]
+}
