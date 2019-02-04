@@ -1058,7 +1058,6 @@ func (p *BlockPrinter) PrintSignaturePolicyEnvelope(sigPolicyEnv *fabriccmn.Sign
 		p.ItemEnd()
 	}
 	p.ArrayEnd()
-	p.Field("MaxValidationGroups", sigPolicyEnv.MaxValidationGroups)
 }
 
 // PrintMSPPrincipal prints a MSPPrincipal
