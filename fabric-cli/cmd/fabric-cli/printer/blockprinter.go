@@ -1011,18 +1011,19 @@ func (p *BlockPrinter) PrintConfigPolicy(policy *fabriccmn.ConfigPolicy) {
 	case fabriccmn.Policy_SIGNATURE:
 		sigPolicyEnv := &fabriccmn.SignaturePolicyEnvelope{}
 		unmarshalOrPanic(policy.Policy.Value, sigPolicyEnv)
-		p.Print("Signature Policy:")
+		p.Field("Type", "SIGNATURE")
 		p.PrintSignaturePolicyEnvelope(sigPolicyEnv)
 		break
 
 	case fabriccmn.Policy_MSP:
-		p.Print("Policy_MSP: TODO")
+		p.Field("Type", "MSP")
+		p.Print("!!!!!!! Don't know how to Print MSP policy")
 		break
 
 	case fabriccmn.Policy_IMPLICIT_META:
 		impMetaPolicy := &fabriccmn.ImplicitMetaPolicy{}
 		unmarshalOrPanic(policy.Policy.Value, impMetaPolicy)
-		p.Print("Implicit Meta Policy:")
+		p.Field("Type", "IMPLICIT_META")
 		p.PrintImplicitMetaPolicy(impMetaPolicy)
 		break
 
@@ -1057,6 +1058,7 @@ func (p *BlockPrinter) PrintSignaturePolicyEnvelope(sigPolicyEnv *fabriccmn.Sign
 		p.ItemEnd()
 	}
 	p.ArrayEnd()
+	p.Field("MaxValidationGroups", sigPolicyEnv.MaxValidationGroups)
 }
 
 // PrintMSPPrincipal prints a MSPPrincipal
@@ -1090,22 +1092,23 @@ func (p *BlockPrinter) PrintMSPPrincipal(principal *msp.MSPPrincipal) {
 func (p *BlockPrinter) PrintSignaturePolicy(sigPolicy *fabriccmn.SignaturePolicy) {
 	switch t := sigPolicy.Type.(type) {
 	case *fabriccmn.SignaturePolicy_SignedBy:
+		p.Field("Type", "SignedBy")
 		p.PrintSignaturePolicySignedBy(t)
-		break
 	case *fabriccmn.SignaturePolicy_NOutOf_:
+		p.Field("Type", "NOutOf")
 		p.PrintSignaturePolicyNOutOf(t.NOutOf)
-		break
+	default:
+		p.Print("!!!!!!! Don't know how to print signature policy: %s", t)
 	}
 }
 
 // PrintSignaturePolicySignedBy prints a SignaturePolicy_SignedBy policy
 func (p *BlockPrinter) PrintSignaturePolicySignedBy(sigPolicy *fabriccmn.SignaturePolicy_SignedBy) {
-	p.Field("SignaturePolicy_SignedBy", sigPolicy.SignedBy)
+	p.Field("SignedBy", sigPolicy.SignedBy)
 }
 
 // PrintSignaturePolicyNOutOf prints a SignaturePolicy_NOutOf policy
 func (p *BlockPrinter) PrintSignaturePolicyNOutOf(sigPolicy *fabriccmn.SignaturePolicy_NOutOf) {
-	p.Print("SignaturePolicy_NOutOf")
 	p.Field("N", sigPolicy.N)
 	p.Array("Rules")
 	for i, policy := range sigPolicy.Rules {
