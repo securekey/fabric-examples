@@ -339,16 +339,16 @@ go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='
 go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='[{"Func":"move","Args":["A","B","1"]},{"Func":"move","Args":["B","A","1"]}]' --iterations 100 --concurrency 8 --attempts=3 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
-#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and values
+#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys, values, and variables
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$rand(1000)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='[{"Func":"putprivate","Args":["$set(coll,coll1)","$set(key,Key_$rand(500))","Val_$rand(1000)"]},{"Func":"getprivate","Args":["${coll}","${key}"]}]' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
-#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and large values
+#### Invoke chaincode 100 times in 8 Go routines using sequentially generated keys and large values
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$pad(500,X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$seq()","Val_$pad(500,X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and random size values

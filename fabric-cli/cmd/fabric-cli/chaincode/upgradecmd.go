@@ -115,7 +115,7 @@ func (a *upgradeAction) invoke() error {
 		Name:       cliconfig.Config().ChaincodeID(),
 		Path:       cliconfig.Config().ChaincodePath(),
 		Version:    cliconfig.Config().ChaincodeVersion(),
-		Args:       utils.AsBytes(args.Args),
+		Args:       utils.AsBytes(utils.NewContext(), args.Args),
 		Policy:     chaincodePolicy,
 		CollConfig: collConfig,
 	}

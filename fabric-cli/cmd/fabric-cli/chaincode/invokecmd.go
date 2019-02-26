@@ -8,6 +8,9 @@ package chaincode
 
 import (
 	"fmt"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/multitask"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/task"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
 	"strconv"
 	"sync"
 	"time"
@@ -107,16 +110,20 @@ func (a *invokeAction) invoke() error {
 
 	var wg sync.WaitGroup
 	var mutex sync.RWMutex
-	var tasks []*invoketask.Task
+	var tasks []task.Task
 	var taskID int
 	for i := 0; i < cliconfig.Config().Iterations(); i++ {
+		ctxt := utils.NewContext()
+		multiTask := multitask.New(wg.Done)
 		for _, args := range argsArray {
 			taskID++
 			var startTime time.Time
+			cargs := args
 			task := invoketask.New(
+				ctxt,
 				strconv.Itoa(taskID), channelClient, targets,
 				cliconfig.Config().ChaincodeID(),
-				&args, executor,
+				&cargs, executor,
 				retry.Opts{
 					Attempts:       cliconfig.Config().MaxAttempts(),
 					InitialBackoff: cliconfig.Config().InitialBackoff(),
@@ -132,7 +139,6 @@ func (a *invokeAction) invoke() error {
 				},
 				func(err error) {
 					duration := time.Since(startTime)
-					defer wg.Done()
 					mutex.Lock()
 					defer mutex.Unlock()
 					if err != nil {
@@ -143,13 +149,14 @@ func (a *invokeAction) invoke() error {
 						successDurations = append(successDurations, duration)
 					}
 				})
-			tasks = append(tasks, task)
+			multiTask.Add(task)
 		}
+		tasks = append(tasks, multiTask)
 	}
 
-	numInvocations := len(tasks)
+	wg.Add(len(tasks))
 
-	wg.Add(numInvocations)
+	numInvocations := len(tasks) * len(argsArray)
 
 	done := make(chan bool)
 	go func() {
@@ -204,7 +211,7 @@ func (a *invokeAction) invoke() error {
 		}
 	}
 
-	if numInvocations > 1 {
+	if numInvocations/len(argsArray) > 1 {
 		fmt.Printf("\n")
 		fmt.Printf("*** ---------- Summary: ----------\n")
 		fmt.Printf("***   - Invocations:     %d\n", numInvocations)
