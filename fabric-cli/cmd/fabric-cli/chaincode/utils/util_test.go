@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package utils
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
@@ -61,23 +62,61 @@ func TestFailEvaluateRandExpression(t *testing.T) {
 	assert.Equal(t, "Value_$rand(X)_0!", result)
 }
 
+func TestEvaluateSeqExpression(t *testing.T) {
+	assert.Equal(t, "Value_1!", evaluateSeqExpression("Value_$seq()!"))
+	assert.Equal(t, "Value_2!", evaluateSeqExpression("Value_$seq()!"))
+	assert.Equal(t, "Value_3!", evaluateSeqExpression("Value_$seq()!"))
+}
+
+func TestFailEvaluateSeqExpression(t *testing.T) {
+	assert.Equal(t, "Value_$seq(!", evaluateSeqExpression("Value_$seq(!"))
+}
+
+func TestEvaluateSetExpression(t *testing.T) {
+	ctxt := NewContext()
+	assert.Equal(t, "Value_1000!", evaluateSetExpression(ctxt, "Value_$set(x,1000)!"))
+	assert.Equal(t, "Value_1000!", evaluateVarExpression(ctxt, "Value_${x}!"))
+}
+
+func TestFailEvaluateSetExpression(t *testing.T) {
+	ctxt := NewContext()
+	assert.Equal(t, "Value_$set(x,1000", evaluateSetExpression(ctxt, "Value_$set(x,1000"))
+	assert.Equal(t, "Value_${x", evaluateVarExpression(ctxt, "Value_${x"))
+
+	// Var not set
+	assert.Equal(t, "Value_${x}", evaluateVarExpression(NewContext(), "Value_${x}"))
+}
+
 func TestGetArg(t *testing.T) {
 	rand := rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
-	result := getArg(rand, "Value_$pad(3,X)!")
+	result := getArg(NewContext(), rand, "Value_$pad(3,X)!")
 	assert.Equal(t, "Value_XXX!", result)
 
 	for i := 0; i < 5; i++ {
-		result := getArg(rand, "Value_$rand(2)!")
+		result := getArg(NewContext(), rand, "Value_$rand(2)!")
 		assert.True(t, result == "Value_0!" || result == "Value_1!")
 	}
 
 	for i := 0; i < 5; i++ {
-		result := getArg(rand, "Value_$pad(3,X)_$rand(2)!")
+		result := getArg(NewContext(), rand, "Value_$pad(3,X)_$rand(2)!")
 		assert.True(t, result == "Value_XXX_0!" || result == "Value_XXX_1!")
 	}
 
 	for i := 0; i < 5; i++ {
-		result := getArg(rand, "Value_$pad($rand(3),X)!")
+		result := getArg(NewContext(), rand, "Value_$pad($rand(3),X)!")
 		assert.True(t, result == "Value_!" || result == "Value_X!" || result == "Value_XX!")
+	}
+
+	n := sequence + 1
+	for i := n; i <= n+5; i++ {
+		result := getArg(NewContext(), rand, "Value_$seq()!")
+		assert.True(t, result == fmt.Sprintf("Value_%d!", i))
+	}
+
+	n = sequence + 1
+	for i := n; i <= n+5; i++ {
+		ctxt := NewContext()
+		assert.Equal(t, fmt.Sprintf("Key_%d=Val_%d", i, i), getArg(ctxt, rand, "Key_$set(x,$seq())=Val_${x}"))
+		assert.Equal(t, fmt.Sprintf("Value_%d!", i), getArg(ctxt, rand, "Value_${x}!"))
 	}
 }
