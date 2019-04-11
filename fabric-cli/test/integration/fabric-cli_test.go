@@ -7,14 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package integration
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 
-	"strings"
-
-	"fmt"
-
-	clicmd "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/cmd"
+	clicmd "github.com/securekey/fabric-examples/fabric-cli/cmd"
 )
 
 //

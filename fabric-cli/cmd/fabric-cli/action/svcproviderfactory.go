@@ -10,12 +10,13 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/common/selection/dynamicselection"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/common/selection/fabricselection"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/common/selection/staticselection"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/options"
 	contextApi "github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk/factory/defsvc"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk/provider/chpvdr"
 	"github.com/pkg/errors"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
 )
 
 // serviceProviderFactory is configured with either static or dynamic selection provider
@@ -39,8 +40,8 @@ type fabricSelectionChannelService struct {
 }
 
 // CreateChannelProvider returns a new default implementation of channel provider
-func (f *serviceProviderFactory) CreateChannelProvider(config fab.EndpointConfig) (fab.ChannelProvider, error) {
-	chProvider, err := chpvdr.New(config)
+func (f *serviceProviderFactory) CreateChannelProvider(config fab.EndpointConfig, opts ...options.Opt) (fab.ChannelProvider, error) {
+	chProvider, err := chpvdr.New(config, opts...)
 	if err != nil {
 		return nil, err
 	}

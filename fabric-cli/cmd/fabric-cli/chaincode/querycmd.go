@@ -8,20 +8,20 @@ package chaincode
 
 import (
 	"fmt"
-	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/multitask"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/task"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/querytask"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/executor"
+	"github.com/securekey/fabric-examples/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/chaincode/multitask"
+	"github.com/securekey/fabric-examples/fabric-cli/chaincode/querytask"
+	"github.com/securekey/fabric-examples/fabric-cli/chaincode/task"
+	"github.com/securekey/fabric-examples/fabric-cli/chaincode/utils"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/executor"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -170,10 +170,14 @@ func (a *queryAction) query() error {
 	}()
 
 	startTime := time.Now()
+	sleepTime := time.Duration(cliconfig.Config().SleepTime()) * time.Millisecond
 
 	for _, task := range tasks {
 		if err := executor.Submit(task); err != nil {
 			return errors.Errorf("error submitting task: %s", err)
+		}
+		if sleepTime > 0 {
+			time.Sleep(sleepTime)
 		}
 	}
 

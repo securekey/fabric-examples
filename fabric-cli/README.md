@@ -35,12 +35,10 @@ Events:
 
 ## Running
 
-Navigate to folder cmd/fabric-cli. (If you don't have dep installed then you can get here: <https://github.com/golang/dep>.)
-
-Populate generated files (not included in git):
+NOTE: If using Go 1.11 or 1.12, you'll need to set the following environment variable:
 
 ```bash
-make populate
+export GO111MODULE=on
 ```
 
 Run the client:
@@ -59,14 +57,15 @@ go run fabric-cli.go
 
 This example is compatible with the following Hyperledger Fabric/SDK commit levels:
 
-- fabric: v1.1.0, v1.2.0, v1.3.0
-- fabric-sdk-go: master:05ffa0a5ae5db0890341fdec498ccc5e684a6ea5
+- fabric: v1.1.0, v1.2.0, v1.3.0, v1.4, v2.0
+- fabric-sdk-go: master:33f4504ff8f169ebddd822443eadbe1bf4b96887
 
 ### Quick Tour
 
 Start the example HLF network locally
 
 ```bash
+make populate-sdk
 make example-network
 ```
 
@@ -79,9 +78,9 @@ cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
 Create channel 'orgchannel' and add anchor peers
 
 ```bash
-go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.3/channel/orgchannel.tx --config ../../test/fixtures/config/config_test_local.yaml
-go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.3/channel/orgchannelOrg1MSPanchors.tx --config ../../test/fixtures/config/config_test_local.yaml --orgid org1
-go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.3/channel/orgchannelOrg2MSPanchors.tx --config ../../test/fixtures/config/config_test_local.yaml --orgid org2
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannel.tx --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg1MSPanchors.tx --config ../../test/fixtures/config/config_test_local.yaml --orgid org1
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg2MSPanchors.tx --config ../../test/fixtures/config/config_test_local.yaml --orgid org2
 ```
 
 Join all peers to channel 'orgchannel'
@@ -139,14 +138,14 @@ make clean
 #### Create a channel
 
 ```bash
-go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.3/channel/orgchannel.tx --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannel.tx --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Update anchor peers
 
 ```bash
-go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.3/channel/orgchannelOrg1MSPanchors.tx --orgid=org1 --config ../../test/fixtures/config/config_test_local.yaml
-go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.3/channel/orgchannelOrg2MSPanchors.tx --orgid=org2 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg1MSPanchors.tx --orgid=org1 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg2MSPanchors.tx --orgid=org2 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Join a peer to a channel

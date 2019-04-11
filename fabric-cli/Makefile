@@ -6,9 +6,8 @@
 
 # Supported Targets:
 #
-# populate: populates all generated files (not included in git)
+# populate-sdk: retrieves all fabric-sdk-files required for tests
 # fabric-sdk-go-pin: populates only upstream files (not included in git)
-# populate-vendor: populates only the vendor directory (not included in git)
 # example-network: start the example fabric network
 # example-network-clean: stops any running network and cleans up the artifacts
 # clean: removes all generated artifacts
@@ -22,13 +21,13 @@ DOCKER_COMPOSE_CMD ?= docker-compose
 
 # fabric-sdk-go version (overridable)
 FABRIC_SDK_GO_BRANCH    ?= master
-FABRIC_SDK_GO_COMMIT    ?= 05ffa0a5ae5db0890341fdec498ccc5e684a6ea5
+FABRIC_SDK_GO_COMMIT    ?= 33f4504ff8f169ebddd822443eadbe1bf4b96887
 
 # Test fixture paths
 FIXTURE_DOCKERENV_PATH := fabric-sdk-go/test/fixtures/dockerenv
 
-.PHONY: populate
-populate: fabric-sdk-go-pin fabric-sdk-go-populate populate-vendor
+.PHONY: polulate-sdk
+populate-sdk: fabric-sdk-go-pin fabric-sdk-go-populate
 
 .PHONY: fabric-sdk-go-pin
 fabric-sdk-go-pin:
@@ -38,11 +37,6 @@ fabric-sdk-go-pin:
 .PHONY: fabric-sdk-go-populate
 fabric-sdk-go-populate:
 	@scripts/fabric-sdk-go/populate.sh
-
-.PHONY: populate-vendor
-populate-vendor:
-	@echo "Populating vendor ..."
-	@$(GO_DEP_CMD) ensure -vendor-only
 
 .PHONY: clean
 clean: example-network-clean

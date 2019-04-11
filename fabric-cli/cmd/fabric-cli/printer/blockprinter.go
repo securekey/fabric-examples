@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/msp"
 	ab "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/orderer"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
-	utils "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/utils"
 	"github.com/pkg/errors"
 )
 
@@ -177,7 +176,7 @@ func (p *BlockPrinter) PrintBlock(block *fabriccmn.Block) {
 	p.Array("Data")
 	for i := range block.Data.Data {
 		p.Item("Envelope", i)
-		p.PrintEnvelope(utils.ExtractEnvelopeOrPanic(block, i))
+		p.PrintEnvelope(ExtractEnvelopeOrPanic(block, i))
 		p.ItemEnd()
 	}
 	p.ArrayEnd()
@@ -422,7 +421,7 @@ func (p *BlockPrinter) PrintCDSData(cdsData *ccprovider.CDSData) {
 func (p *BlockPrinter) PrintEnvelope(envelope *fabriccmn.Envelope) {
 	p.Field("Signature", envelope.Signature)
 
-	payload := utils.ExtractPayloadOrPanic(envelope)
+	payload := ExtractPayloadOrPanic(envelope)
 	p.Element("Payload")
 	p.PrintPayload(payload)
 	p.ElementEnd()
@@ -432,7 +431,7 @@ func (p *BlockPrinter) PrintEnvelope(envelope *fabriccmn.Envelope) {
 func (p *BlockPrinter) PrintPayload(payload *fabriccmn.Payload) {
 	p.Element("Header")
 
-	chdr, err := utils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
+	chdr, err := UnmarshalChannelHeader(payload.Header.ChannelHeader)
 	if err != nil {
 		panic(err)
 	}
@@ -441,7 +440,7 @@ func (p *BlockPrinter) PrintPayload(payload *fabriccmn.Payload) {
 	p.PrintChannelHeader(chdr)
 	p.ElementEnd()
 
-	sigHeader, err := utils.GetSignatureHeader(payload.Header.SignatureHeader)
+	sigHeader, err := GetSignatureHeader(payload.Header.SignatureHeader)
 	if err != nil {
 		panic(err)
 	}
@@ -526,7 +525,7 @@ func (p *BlockPrinter) PrintData(headerType fabriccmn.HeaderType, data []byte) {
 		p.Print("Config Update Envelope:")
 		p.PrintConfigUpdateEnvelope(envelope)
 	} else if headerType == fabriccmn.HeaderType_ENDORSER_TRANSACTION {
-		tx, err := utils.GetTransaction(data)
+		tx, err := GetTransaction(data)
 		if err != nil {
 			panic(errors.Errorf("Bad envelope: %v", err))
 		}
@@ -599,7 +598,7 @@ func (p *BlockPrinter) PrintFilteredTransaction(tx *pb.FilteredTransaction) {
 func (p *BlockPrinter) PrintTXAction(action *pb.TransactionAction) {
 	p.Element("Header")
 
-	sigHeader, err := utils.GetSignatureHeader(action.Header)
+	sigHeader, err := GetSignatureHeader(action.Header)
 	if err != nil {
 		panic(err)
 	}
@@ -609,7 +608,7 @@ func (p *BlockPrinter) PrintTXAction(action *pb.TransactionAction) {
 
 	p.Element("Payload")
 
-	chaPayload, err := utils.GetChaincodeActionPayload(action.Payload)
+	chaPayload, err := GetChaincodeActionPayload(action.Payload)
 	if err != nil {
 		panic(err)
 	}
@@ -1296,7 +1295,7 @@ func (p *BlockPrinter) PrintAnchorPeer(anchorPeer *pb.AnchorPeer) {
 func (p *BlockPrinter) PrintConfigSignature(sig *fabriccmn.ConfigSignature) {
 	p.Field("Signature", sig.Signature)
 
-	sigHeader, err := utils.GetSignatureHeader(sig.SignatureHeader)
+	sigHeader, err := GetSignatureHeader(sig.SignatureHeader)
 	if err != nil {
 		panic(err)
 	}
@@ -1329,7 +1328,7 @@ func (p *BlockPrinter) PrintBlockMetadata(blockMetaData *fabriccmn.BlockMetadata
 func (p *BlockPrinter) PrintSignaturesMetadata(metadata *fabriccmn.Metadata) {
 	p.Array("Signatures")
 	for i, metadataSignature := range metadata.Signatures {
-		shdr, err := utils.GetSignatureHeader(metadataSignature.SignatureHeader)
+		shdr, err := GetSignatureHeader(metadataSignature.SignatureHeader)
 		if err != nil {
 			panic(errors.Errorf("Failed unmarshalling meta data signature header. Error: %v", err))
 		}
