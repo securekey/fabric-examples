@@ -16,9 +16,9 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/chaincode/utils"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -116,7 +116,7 @@ func (a *instantiateAction) invoke() error {
 		Name:       cliconfig.Config().ChaincodeID(),
 		Path:       cliconfig.Config().ChaincodePath(),
 		Version:    cliconfig.Config().ChaincodeVersion(),
-		Args:       utils.AsBytes(args.Args),
+		Args:       utils.AsBytes(utils.NewContext(), args.Args),
 		Policy:     chaincodePolicy,
 		CollConfig: collConfig,
 	}

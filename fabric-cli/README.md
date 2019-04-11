@@ -35,12 +35,10 @@ Events:
 
 ## Running
 
-Navigate to folder cmd/fabric-cli. (If you don't have dep installed then you can get here: <https://github.com/golang/dep>.)
-
-Populate generated files (not included in git):
+NOTE: If using Go 1.11 or 1.12, you'll need to set the following environment variable:
 
 ```bash
-make populate
+export GO111MODULE=on
 ```
 
 Run the client:
@@ -59,14 +57,15 @@ go run fabric-cli.go
 
 This example is compatible with the following Hyperledger Fabric/SDK commit levels:
 
-- fabric: v1.1.0, v1.2.0
-- fabric-sdk-go: master:37201e914412e03b048f398ba3cdbf101515f9a3
+- fabric: v1.1.0, v1.2.0, v1.3.0, v1.4, v2.0
+- fabric-sdk-go: master:33f4504ff8f169ebddd822443eadbe1bf4b96887
 
 ### Quick Tour
 
 Start the example HLF network locally
 
 ```bash
+make populate-sdk
 make example-network
 ```
 
@@ -76,16 +75,18 @@ Open another shell and go to the CLI directory
 cd $GOPATH/src/github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli
 ```
 
-Create channel 'mychannel'
+Create channel 'orgchannel' and add anchor peers
 
 ```bash
-go run fabric-cli.go channel create --cid mychannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.1/channel/mychannel.tx --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannel.tx --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg1MSPanchors.tx --config ../../test/fixtures/config/config_test_local.yaml --orgid org1
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg2MSPanchors.tx --config ../../test/fixtures/config/config_test_local.yaml --orgid org2
 ```
 
-Join all peers to channel 'mychannel'
+Join all peers to channel 'orgchannel'
 
 ```bash
-go run fabric-cli.go channel join --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel join --cid orgchannel --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Install ExampleCC chaincode on all peers
@@ -97,25 +98,25 @@ go run fabric-cli.go chaincode install --ccp=github.com/securekey/example_cc --c
 Instantiate ExampleCC chaincode with endorsement policy AND('Org1MSP.member','Org2MSP.member')
 
 ```bash
-go run fabric-cli.go chaincode instantiate --cid mychannel --ccp=github.com/securekey/example_cc --ccid ExampleCC --v v0 --args '{"Args":["A","1","B","2"]}' --policy "AND('Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode instantiate --cid orgchannel --ccp=github.com/securekey/example_cc --ccid ExampleCC --v v0 --args '{"Args":["A","1","B","2"]}' --policy "AND('Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Query ExampleCC chaincode on a set of peers
 
 ```bash
-go run fabric-cli.go chaincode query --cid mychannel --ccid ExampleCC --args '{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --payload --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode query --cid orgchannel --ccid ExampleCC --args '{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --payload --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
-Listen for block events (output in JSON):
+Listen for block events:
 
 ```bash
-go run fabric-cli.go event listenblock --cid mychannel --format json --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go event listenblock --cid orgchannel --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 Then invoke ExampleCC chaincode in another shell and observe block events in the first shell.
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=ExampleCC --args '{"Func":"move","Args":["A","B","1"]}' --peer localhost:7051,localhost:8051 --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=ExampleCC --args '{"Func":"move","Args":["A","B","1"]}' --peer localhost:7051,localhost:8051 --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 To clean up example network artifacts run
@@ -124,7 +125,11 @@ To clean up example network artifacts run
 make example-network-clean
 ```
 
-and follow instructions. This process is not yet automated.
+To clean up all generated artifacts run
+
+```bash
+make clean
+```
 
 ## CLI examples
 
@@ -133,32 +138,32 @@ and follow instructions. This process is not yet automated.
 #### Create a channel
 
 ```bash
-go run fabric-cli.go channel create --cid mychannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.1/channel/mychannel.tx --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannel.tx --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Update anchor peers
 
 ```bash
-go run fabric-cli.go channel create --cid mychannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.1/channel/mychannelOrg1MSPanchors.tx --orgid=org1 --config ../../test/fixtures/config/config_test_local.yaml
-go run fabric-cli.go channel create --cid mychannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.1/channel/mychannelOrg2MSPanchors.tx --orgid=org2 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg1MSPanchors.tx --orgid=org1 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel create --cid orgchannel --txfile ../../fabric-sdk-go/test/fixtures/fabric/v1.4/channel/orgchannelOrg2MSPanchors.tx --orgid=org2 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Join a peer to a channel
 
 ```bash
-go run fabric-cli.go channel join --cid mychannel --peer localhost:7051 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel join --cid orgchannel --peer localhost:7051 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Join all peers in org1 to a channel
 
 ```bash
-go run fabric-cli.go channel join --cid mychannel --orgid org1 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel join --cid orgchannel --orgid org1 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Join all peers to a channel
 
 ```bash
-go run fabric-cli.go channel join --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go channel join --cid orgchannel --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Query
@@ -166,31 +171,31 @@ go run fabric-cli.go channel join --cid mychannel --config ../../test/fixtures/c
 #### Query info
 
 ```bash
-go run fabric-cli.go query info --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go query info --cid orgchannel --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Query block by block number
 
 ```bash
-go run fabric-cli.go query block --cid mychannel --num 0 --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go query block --cid orgchannel --num 0 --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Query block by hash (replace the example hash with a valid hash, e.g. using the output from query info)
 
 ```bash
-go run fabric-cli.go query block --cid mychannel --hash BNNsxK_Xyz2d3Yj2g6M2t3aOYkHCxvoPeIGmTWdOJ9w --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go query block --cid orgchannel --hash BNNsxK_Xyz2d3Yj2g6M2t3aOYkHCxvoPeIGmTWdOJ9w --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Query block output in JSON format
 
 ```bash
-go run fabric-cli.go query block --cid mychannel --num 0 --format json --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go query block --cid orgchannel --num 0 --format json --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Query transaction (replace txid with a valid transaction, e.g. using the output from query block)
 
 ```bash
-go run fabric-cli.go query tx --cid mychannel --txid 0ed409872e0e6a6aa745df10d5e71e33d7e160b84519c2ad89281e65b6561364 --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go query tx --cid orgchannel --txid 0ed409872e0e6a6aa745df10d5e71e33d7e160b84519c2ad89281e65b6561364 --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Query channels joined by a peer
@@ -208,7 +213,7 @@ go run fabric-cli.go query installed --peer localhost:7051 --config ../../test/f
 #### Query discovered peers on a channel
 
 ```bash
-go run fabric-cli.go query peers --cid mychannel --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go query peers --cid orgchannel --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Query discovered peers in an org
@@ -244,26 +249,27 @@ go run fabric-cli.go chaincode install --ccp=github.com/securekey/example_cc --g
 #### Instantiate chaincode with default endorsement policy (any one)
 
 ```bash
-go run fabric-cli.go chaincode instantiate --cid mychannel --ccp github.com/securekey/example_cc --ccid examplecc --v v0 --args='{"Args":["A","1","B","2"]}' --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode instantiate --cid orgchannel --ccp github.com/securekey/example_cc --ccid examplecc --v v0 --args='{"Args":["A","1","B","2"]}' --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Instantiate chaincode with specified endorsement policy
 
 ```bash
-go run fabric-cli.go chaincode instantiate --cid mychannel --ccp github.com/securekey/example_cc --ccid examplecc --v v0 --args='{"Args":["A","1","B","2"]}' --policy "AND('Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode instantiate --cid orgchannel --ccp github.com/securekey/example_cc --ccid examplecc --v v0 --args='{"Args":["A","1","B","2"]}' --policy "AND('Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Instantiate chaincode with specified private data collection configuration (Fabric 1.2 and greater)
 
 ```bash
-go run fabric-cli.go chaincode instantiate --cid mychannel --ccp github.com/securekey/example2_cc --ccid example2cc --v v0 --policy "AND('Org1MSP.member','Org2MSP.member')" --collconfig ../../test/fixtures/config/pvtdatacollection.json --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode install --ccp=github.com/securekey/example2_cc --gopath ../../test/fixtures/testdata --ccid=example2cc --v v0 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode instantiate --cid orgchannel --ccp github.com/securekey/example2_cc --ccid example2cc --v v0 --policy "AND('Org1MSP.member','Org2MSP.member')" --collconfig ../../test/fixtures/config/pvtdatacollection.json --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Upgrade chaincode
 
 ```bash
-go run fabric-cli.go chaincode install --cid=mychannel --ccp=github.com/securekey/example_cc --gopath ../../test/fixtures/testdata --ccid=examplecc --v v1 --config ../../test/fixtures/config/config_test_local.yaml
-go run fabric-cli.go chaincode upgrade --cid mychannel --ccp github.com/securekey/example_cc --ccid examplecc --v v1 --args='{"Args":["A","1","B","2"]}' --policy "OutOf(2,'Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode install --cid=orgchannel --ccp=github.com/securekey/example_cc --gopath ../../test/fixtures/testdata --ccid=examplecc --v v1 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode upgrade --cid orgchannel --ccp github.com/securekey/example_cc --ccid examplecc --v v1 --args='{"Args":["A","1","B","2"]}' --policy "OutOf(2,'Org1MSP.member','Org2MSP.member')" --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Chaincode Info
@@ -271,7 +277,7 @@ go run fabric-cli.go chaincode upgrade --cid mychannel --ccp github.com/secureke
 #### Retrieve chaincode deployment info
 
 ```bash
-go run fabric-cli.go chaincode info --cid mychannel --ccid examplecc --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode info --cid orgchannel --ccid examplecc --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Query Chaincode
@@ -279,13 +285,13 @@ go run fabric-cli.go chaincode info --cid mychannel --ccid examplecc --base64 --
 #### Query chaincode on a set of peers
 
 ```bash
-go run fabric-cli.go chaincode query --cid mychannel --ccid=examplecc --args='{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode query --cid orgchannel --ccid=examplecc --args='{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Query chaincode and view payloads only
 
 ```bash
-go run fabric-cli.go chaincode query --cid mychannel --ccid=examplecc --args='{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --payload --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode query --cid orgchannel --ccid=examplecc --args='{"Func":"query","Args":["A"]}' --peer localhost:7051,localhost:8051 --payload --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Invoke Chaincode
@@ -293,61 +299,61 @@ go run fabric-cli.go chaincode query --cid mychannel --ccid=examplecc --args='{"
 #### Invoke chaincode on all peers in org1
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --orgid org1 --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --orgid org1 --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Invoke chaincode using a 'dynamic' selection provider that chooses a minimal set of peers required to satisfy the endorsement policy of the chaincode
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --selectprovider=dynamic --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --selectprovider=dynamic --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
-#### Invoke chaincode using Fabric's discovery service to choose a minimal set of peers required to satisfy the endorsement policy of the chaincode (Requires Fabric 1.2)
+#### Invoke chaincode using Fabric's discovery service to choose a minimal set of peers required to satisfy the endorsement policy of the chaincode (Requires Fabric >=1.2)
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --selectprovider=fabric --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --selectprovider=fabric --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
-#### Invoke chaincode using a selection provider automatically determined from channel capabilities ('dynamic' for v1.1; 'fabric' for v1.2)
+#### Invoke chaincode using a selection provider automatically determined from channel capabilities ('dynamic' for v1.1; 'fabric' for >=v1.2)
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Invoke chaincode 5 times
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --iterations 5 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --iterations 5 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Invoke chaincode 100 times in 8 Go routines with a maximum of 5 attempts for each invocation (in case the invocation fails)
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --iterations 100 --concurrency 8 --attempts 5 --backoff 1000 --backofffactor 1.5 --maxbackoff 5000 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='{"Func":"move","Args":["A","B","1"]}' --iterations 100 --concurrency 8 --attempts 5 --backoff 1000 --backofffactor 1.5 --maxbackoff 5000 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Invoke chaincode with two sets of args, 100 times each in 8 Go routines with 3 attempts for each invocation (in case the invocation fails)
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=examplecc --args='[{"Func":"move","Args":["A","B","1"]},{"Func":"move","Args":["B","A","1"]}]' --iterations 100 --concurrency 8 --attempts=3 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=examplecc --args='[{"Func":"move","Args":["A","B","1"]},{"Func":"move","Args":["B","A","1"]}]' --iterations 100 --concurrency 8 --attempts=3 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
-#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and values
+#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys, values, and variables
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$rand(1000)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='[{"Func":"putprivate","Args":["$set(coll,coll1)","$set(key,Key_$rand(500))","Val_$rand(1000)"]},{"Func":"getprivate","Args":["${coll}","${key}"]}]' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
-#### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and large values
+#### Invoke chaincode 100 times in 8 Go routines using sequentially generated keys and large values
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$pad(500,X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$seq()","Val_$pad(500,X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 #### Invoke chaincode 100 times in 8 Go routines using randomly generated keys and random size values
 
 ```bash
-go run fabric-cli.go chaincode invoke --cid mychannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$pad($rand(500),X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$pad($rand(500),X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ## Event
@@ -357,29 +363,29 @@ go run fabric-cli.go chaincode invoke --cid mychannel --ccid=example2cc --args='
 ### Listen for block events on a specific peer (output in JSON)
 
 ```bash
-go run fabric-cli.go event listenblock --cid mychannel --peer localhost:7051 --format json --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go event listenblock --cid orgchannel --peer localhost:7051 --format json --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Listen for block events starting from block number 20
 
 ```bash
-go run fabric-cli.go event listenblock --cid mychannel --peer localhost:7051 --seek from --num 20 --base64 --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go event listenblock --cid orgchannel --peer localhost:7051 --seek from --num 20 --base64 --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Listen for filtered block events (output in JSON)
 
 ```bash
-go run fabric-cli.go event listenfilteredblock --cid mychannel --format json --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go event listenfilteredblock --cid orgchannel --format json --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Listen for chaincode events
 
 ```bash
-go run fabric-cli.go event listencc --cid mychannel --ccid=examplecc --event=.* --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go event listencc --cid orgchannel --ccid=examplecc --event=.* --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ### Listen for tx event
 
 ```bash
-go run fabric-cli.go event listentx --cid mychannel --txid <txid> --config ../../test/fixtures/config/config_test_local.yaml
+go run fabric-cli.go event listentx --cid orgchannel --txid <txid> --config ../../test/fixtures/config/config_test_local.yaml
 ```

@@ -12,16 +12,17 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/invokeerror"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/executor"
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/printer"
+	"github.com/securekey/fabric-examples/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/chaincode/invokeerror"
+	"github.com/securekey/fabric-examples/fabric-cli/chaincode/utils"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/executor"
+	"github.com/securekey/fabric-examples/fabric-cli/printer"
 )
 
 // Task is a Task that invokes a chaincode
 type Task struct {
+	ctxt          utils.Context
 	executor      *executor.Executor
 	channelClient *channel.Client
 	targets       []fab.Peer
@@ -40,10 +41,11 @@ type Task struct {
 }
 
 // New returns a new Task
-func New(id string, channelClient *channel.Client, targets []fab.Peer, ccID string, args *action.ArgStruct,
+func New(ctxt utils.Context, id string, channelClient *channel.Client, targets []fab.Peer, ccID string, args *action.ArgStruct,
 	executor *executor.Executor, retryOpts retry.Opts, verbose bool,
 	payloadOnly bool, p printer.Printer, startedCB func(), completedCB func(err error)) *Task {
 	return &Task{
+		ctxt:          ctxt,
 		id:            id,
 		channelClient: channelClient,
 		targets:       targets,
@@ -100,7 +102,7 @@ func (t *Task) doInvoke() error {
 		channel.Request{
 			ChaincodeID: t.ccID,
 			Fcn:         t.args.Func,
-			Args:        utils.AsBytes(t.args.Args),
+			Args:        utils.AsBytes(t.ctxt, t.args.Args),
 		},
 		opts...,
 	)

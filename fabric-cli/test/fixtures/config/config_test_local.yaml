@@ -30,7 +30,7 @@ client:
 
   # Root of the MSP directories with keys and certs.
   cryptoconfig:
-    path: ${GOPATH}/src/github.com/hyperledger/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}
+    path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}
 
   # Some SDKs support pluggable KV stores, the properties under "credentialStore"
   # are implementation specific
@@ -63,9 +63,9 @@ client:
     # [Optional]. Client key and cert for TLS handshake with peers and orderers
     client:
       key:
-        path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/config/mutual_tls/client_sdk_go-key.pem
+        path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/tls.example.com/users/User1@tls.example.com/tls/client.key
       cert:
-        path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/config/mutual_tls/client_sdk_go.pem
+        path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/tls.example.com/users/User1@tls.example.com/tls/client.crt
 
 #
 # [Optional]. But most apps would have this section so that channel objects can be constructed
@@ -193,6 +193,7 @@ organizations:
 
     peers:
       - local.peer0.org2.example.com
+      - local.peer1.org2.example.com
 
     certificateAuthorities:
       - local.ca.org2.example.com
@@ -230,7 +231,7 @@ orderers:
 
     tlsCACerts:
       # Certificate location absolute path
-      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabric/v1/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
 
 #
 # List of peers to send various requests to, including endorsement, query
@@ -257,7 +258,7 @@ peers:
 
     tlsCACerts:
       # Certificate location absolute path
-      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabric/v1/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
+      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
 
   local.peer1.org1.example.com:
     # this URL is used to send endorsement and query requests
@@ -279,7 +280,7 @@ peers:
 
     tlsCACerts:
       # Certificate location absolute path
-      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabric/v1/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
+      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
 
   local.peer0.org2.example.com:
     url: localhost:8051
@@ -298,7 +299,26 @@ peers:
       allow-insecure: false
 
     tlsCACerts:
-      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabric/v1/crypto-config/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
+      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
+
+  local.peer1.org2.example.com:
+    url: localhost:9051
+    # eventUrl is only needed when using eventhub (default is delivery service)
+    eventUrl: localhost:9053
+    grpcOptions:
+      ssl-target-name-override: peer1.org2.example.com
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
 
 #
 # Fabric-CA is a special kind of Certificate Authority provided by Hyperledger Fabric which allows
@@ -306,17 +326,17 @@ peers:
 # Certificate Authority instead of Fabric-CA, in which case this section would not be specified.
 #
 certificateAuthorities:
-  local.ca.org1.example.com:
+  ca.org1.example.com:
     url: https://ca.org1.example.com:7054
     tlsCACerts:
       # Comma-Separated list of paths
-      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabricca/tls/certs/ca_root.pem
+      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
       # Client key and cert for SSL handshake with Fabric CA
       client:
         key:
-          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabricca/tls/certs/client/client_fabric_client-key.pem
+          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/tls.example.com/users/User1@tls.example.com/tls/client.key
         cert:
-          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabricca/tls/certs/client/client_fabric_client.pem
+          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/tls.example.com/users/User1@tls.example.com/tls/client.crt
 
     # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
     # needed to enroll and invoke new users.
@@ -325,20 +345,20 @@ certificateAuthorities:
       enrollSecret: adminpw
     # [Optional] The optional name of the CA.
     caName: ca.org1.example.com
-  local.ca.org2.example.com:
+  ca.org2.example.com:
     url: https://ca.org2.example.com:8054
     tlsCACerts:
       # Comma-Separated list of paths
-      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabricca/tls/certs/ca_root.pem
+      path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
       # Client key and cert for SSL handshake with Fabric CA
       client:
         key:
-          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabricca/tls/certs/client/client_fabric_client-key.pem
+          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/tls.example.com/users/User1@tls.example.com/tls/client.key
         cert:
-          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/test/fixtures/fabricca/tls/certs/client/client_fabric_client.pem
+          path: ${GOPATH}/src/github.com/securekey/fabric-examples/fabric-cli/fabric-sdk-go/${CRYPTOCONFIG_FIXTURES_PATH}/peerOrganizations/tls.example.com/users/User1@tls.example.com/tls/client.crt
 
-    # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
-    # needed to enroll and invoke new users.
+     # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
+     # needed to enroll and invoke new users.
     registrar:
       enrollId: admin
       enrollSecret: adminpw
@@ -362,19 +382,14 @@ entityMatchers:
       eventUrlSubstitutionExp: localhost:8053
       sslTargetOverrideUrlSubstitutionExp: peer0.org2.example.com
       mappedHost: local.peer0.org2.example.com
-    - pattern: peer1.org2.example.com:8151
-      urlSubstitutionExp: localhost:8151
-      eventUrlSubstitutionExp: localhost:8153
+    - pattern: peer1.org2.example.com:9051
+      urlSubstitutionExp: localhost:9051
+      eventUrlSubstitutionExp: localhost:9053
       sslTargetOverrideUrlSubstitutionExp: peer1.org2.example.com
       mappedHost: local.peer1.org2.example.com
 
   orderer:
     - pattern: orderer.example.com
-      urlSubstitutionExp: localhost:7050
-      sslTargetOverrideUrlSubstitutionExp: orderer.example.com
-      mappedHost: local.orderer.example.com
-
-    - pattern: orderer.example.com:7050
       urlSubstitutionExp: localhost:7050
       sslTargetOverrideUrlSubstitutionExp: orderer.example.com
       mappedHost: local.orderer.example.com

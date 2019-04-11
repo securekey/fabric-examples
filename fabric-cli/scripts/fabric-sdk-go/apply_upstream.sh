@@ -39,7 +39,10 @@ rm -Rf "${FABRIC_SDK_GO_PATH}"
 mkdir -p "${FABRIC_SDK_GO_PATH}"
 
 declare -a PATHS=(
+    "Makefile"
     "test/fixtures/*"
+    "scripts/_go/*"
+    "test/scripts/*"
 )
 
 for i in "${PATHS[@]}"
