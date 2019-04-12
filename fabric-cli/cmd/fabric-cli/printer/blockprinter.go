@@ -9,10 +9,9 @@ package printer
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
-
-	"net/http"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
@@ -103,7 +102,7 @@ type Printer interface {
 	PrintProcessedTransaction(tx *pb.ProcessedTransaction)
 
 	// PrintChaincodeData outputs ChaincodeData
-	PrintChaincodeData(ccdata *ccprovider.ChaincodeData)
+	PrintChaincodeData(ccdata *ccprovider.ChaincodeData, collConfig *fabriccmn.CollectionConfigPackage)
 
 	// PrintTxProposalResponses outputs the proposal responses
 	PrintTxProposalResponses(responses []*fab.TransactionProposalResponse, payloadOnly bool)
@@ -270,7 +269,7 @@ func (p *BlockPrinter) PrintProcessedTransaction(tx *pb.ProcessedTransaction) {
 }
 
 // PrintChaincodeData prints the given ChaincodeData
-func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
+func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData, collConfig *fabriccmn.CollectionConfigPackage) {
 	if p.Formatter == nil {
 		fmt.Printf("%s\n", ccData)
 		return
@@ -278,6 +277,7 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 
 	p.PrintHeader()
 	p.doPrintChaincodeData(ccData)
+	p.doPrintCollConfig(collConfig)
 	p.PrintFooter()
 }
 
@@ -304,6 +304,34 @@ func (p *BlockPrinter) doPrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 	unmarshalOrPanic(ccData.InstantiationPolicy, instPolicy)
 	p.Element("InstantiationPolicy")
 	p.PrintSignaturePolicyEnvelope(instPolicy)
+	p.ElementEnd()
+}
+
+func (p *BlockPrinter) doPrintCollConfig(collConfig *fabriccmn.CollectionConfigPackage) {
+	p.Array("CollectionConfig")
+	for i, c := range collConfig.Config {
+		p.Item("Config", i)
+		sc := c.GetStaticCollectionConfig()
+		if sc == nil {
+			p.Value("unknown config type")
+			continue
+		}
+		p.printStaticCollectionConfig(sc)
+		p.ItemEnd()
+	}
+	p.ArrayEnd()
+}
+
+func (p *BlockPrinter) printStaticCollectionConfig(config *fabriccmn.StaticCollectionConfig) {
+	p.Field("Name", config.Name)
+	p.Field("BlockToLive", config.BlockToLive)
+	p.Field("MaximumPeerCount", config.MaximumPeerCount)
+	p.Field("RequiredPeerCount", config.RequiredPeerCount)
+	p.Field("MemberOnlyRead", config.MemberOnlyRead)
+	p.Field("MemberOnlyWrite", config.MemberOnlyWrite)
+
+	p.Element("MemberOrgsPolicy")
+	p.PrintSignaturePolicyEnvelope(config.MemberOrgsPolicy.GetSignaturePolicy())
 	p.ElementEnd()
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/pkg/errors"
 	"github.com/securekey/fabric-examples/fabric-cli/action"
 	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
@@ -21,6 +22,9 @@ import (
 
 const (
 	lifecycleSCC = "lscc"
+
+	getCCDataFunc     = "getccdata"
+	getCollConfigFunc = "getcollectionsconfig"
 )
 
 var getInfoCmd = &cobra.Command{
@@ -70,32 +74,67 @@ func newGetInfoAction(flags *pflag.FlagSet) (*getInfoAction, error) {
 }
 
 func (action *getInfoAction) invoke() error {
-	peer := action.Peer()
 	channelClient, err := action.ChannelClient()
 	if err != nil {
 		return errors.Errorf("error retrieving channel client: %v", err)
 	}
 
+	ccData, err := action.getCCData(channelClient)
+	if err != nil {
+		return errors.WithMessagef(err, "error querying for chaincode data")
+	}
+
+	collConfig, err := action.getCollConfig(channelClient)
+	if err != nil {
+		return errors.WithMessagef(err, "error querying for collection config")
+	}
+
+	action.Printer().PrintChaincodeData(ccData, collConfig)
+
+	return nil
+}
+
+func (action *getInfoAction) getCCData(channelClient *channel.Client) (*ccprovider.ChaincodeData, error) {
 	var args [][]byte
 	args = append(args, []byte(cliconfig.Config().ChannelID()))
 	args = append(args, []byte(cliconfig.Config().ChaincodeID()))
 
+	peer := action.Peer()
 	fmt.Printf("querying chaincode info for %s on peer: %s...\n", cliconfig.Config().ChaincodeID(), peer.URL())
 
 	response, err := channelClient.Query(
-		channel.Request{ChaincodeID: lifecycleSCC, Fcn: "getccdata", Args: args},
+		channel.Request{ChaincodeID: lifecycleSCC, Fcn: getCCDataFunc, Args: args},
 		channel.WithTargetEndpoints(peer.URL()))
 	if err != nil {
-		return errors.Errorf("error querying for chaincode info: %v", err)
+		return nil, errors.Errorf("error querying for chaincode info: %v", err)
 	}
 
 	ccData := &ccprovider.ChaincodeData{}
 	err = proto.Unmarshal(response.Payload, ccData)
 	if err != nil {
-		return errors.Errorf("error unmarshalling chaincode data: %v", err)
+		return nil, errors.Errorf("error unmarshalling chaincode data: %v", err)
+	}
+	return ccData, nil
+}
+
+func (action *getInfoAction) getCollConfig(channelClient *channel.Client) (*common.CollectionConfigPackage, error) {
+	var args [][]byte
+	args = append(args, []byte(cliconfig.Config().ChaincodeID()))
+
+	peer := action.Peer()
+	fmt.Printf("querying collections config for %s on peer: %s...\n", cliconfig.Config().ChaincodeID(), peer.URL())
+
+	response, err := channelClient.Query(
+		channel.Request{ChaincodeID: lifecycleSCC, Fcn: getCollConfigFunc, Args: args},
+		channel.WithTargetEndpoints(peer.URL()))
+	if err != nil {
+		return nil, errors.Errorf("error querying for collections config: %v", err)
 	}
 
-	action.Printer().PrintChaincodeData(ccData)
-
-	return nil
+	collConfig := &common.CollectionConfigPackage{}
+	err = proto.Unmarshal(response.Payload, collConfig)
+	if err != nil {
+		return nil, errors.Errorf("error unmarshalling collections config: %v", err)
+	}
+	return collConfig, nil
 }
