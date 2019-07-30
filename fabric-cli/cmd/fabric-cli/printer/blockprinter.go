@@ -398,7 +398,6 @@ func (p *BlockPrinter) PrintProposalResponse(response *pb.ProposalResponse) {
 	p.Element("Response")
 	p.PrintResponse(response.Response)
 	p.ElementEnd()
-	p.Field("Payload", response.Payload)
 
 	prp := &pb.ProposalResponsePayload{}
 	unmarshalOrPanic(response.Payload, prp)
@@ -947,19 +946,35 @@ func (p *BlockPrinter) PrintWrite(w *kvrwset.KVWrite) {
 func (p *BlockPrinter) PrintLSCCWrite(w *kvrwset.KVWrite) {
 	p.Field("Key", w.Key)
 	p.Field("IsDelete", w.IsDelete)
-	p.Field("Value", w.Value)
-	if !w.IsDelete && !isCollectionConfigKey(w.Key) {
-		chaincodeData := &ccprovider.ChaincodeData{}
-		if err := proto.Unmarshal(w.Value, chaincodeData); err != nil {
-			fmt.Printf("Error unmarshalling chaincode data from lscc KV WriteSet: %s", err)
-		} else {
-			p.Element("Value_ChaincodeData")
-			p.doPrintChaincodeData(chaincodeData)
-			p.ElementEnd()
-		}
-	} else {
-		p.Field("Value", w.Value)
+	if w.IsDelete {
+		return
 	}
+	if isCollectionConfigKey(w.Key) {
+		p.printCollectionConfig(w.Value)
+	} else {
+		p.printChaincodeData(w.Value)
+	}
+}
+
+func (p *BlockPrinter) printChaincodeData(value []byte) {
+	chaincodeData := &ccprovider.ChaincodeData{}
+	if err := proto.Unmarshal(value, chaincodeData); err != nil {
+		fmt.Printf("Error unmarshalling chaincode data from lscc KV WriteSet: %s", err)
+	} else {
+		p.Element("Value_ChaincodeData")
+		p.doPrintChaincodeData(chaincodeData)
+		p.ElementEnd()
+	}
+}
+
+func (p *BlockPrinter) printCollectionConfig(value []byte) {
+	cp := &fabriccmn.CollectionConfigPackage{}
+	err := proto.Unmarshal(value, cp)
+	if err != nil {
+		fmt.Printf("Error unmarshalling collection config from lscc KV WriteSet: %s", err)
+		return
+	}
+	p.doPrintCollConfig(cp)
 }
 
 // PrintChaincodeResponse prints a response
