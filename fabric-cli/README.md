@@ -57,7 +57,7 @@ go run fabric-cli.go
 
 This example is compatible with the following Hyperledger Fabric/SDK commit levels:
 
-- fabric: v1.1.0, v1.2.0, v1.3.0, v1.4, v2.0
+- fabric: v1.3.0, v1.4, v2.0
 - fabric-sdk-go: master:33f4504ff8f169ebddd822443eadbe1bf4b96887
 
 ### Quick Tour
@@ -354,6 +354,12 @@ go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args=
 
 ```bash
 go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='{"Func":"putprivate","Args":["coll1","Key_$rand(500)","Val_$pad($rand(500),X)"]}' --iterations 100 --concurrency 8 --config ../../test/fixtures/config/config_test_local.yaml
+```
+
+#### Invoke a chaincode using the contents of a file as a value
+
+```bash
+go run fabric-cli.go chaincode invoke --cid orgchannel --ccid=example2cc --args='{"Func":"put","Args":["coll1","Key_1","$file(./chaincode/utils/test.json)"]}' --config ../../test/fixtures/config/config_test_local.yaml
 ```
 
 ## Event

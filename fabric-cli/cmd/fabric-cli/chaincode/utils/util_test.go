@@ -72,6 +72,14 @@ func TestFailEvaluateSeqExpression(t *testing.T) {
 	assert.Equal(t, "Value_$seq(!", evaluateSeqExpression("Value_$seq(!"))
 }
 
+func TestEvaluateFileExpression(t *testing.T) {
+	assert.Equal(t, `{"Field1": "Value1"}`, evaluateFileExpression("$file(./test.json)"))
+}
+
+func TestFailEvaluateFileExpression(t *testing.T) {
+	assert.Equal(t, "$file(./invalid.json)", evaluateSeqExpression("$file(./invalid.json)"))
+}
+
 func TestEvaluateSetExpression(t *testing.T) {
 	ctxt := NewContext()
 	assert.Equal(t, "Value_1000!", evaluateSetExpression(ctxt, "Value_$set(x,1000)!"))

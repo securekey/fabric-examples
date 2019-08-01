@@ -9,7 +9,10 @@ package utils
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -23,6 +26,7 @@ const (
 	padFunc  = "$pad("
 	seqFunc  = "$seq("
 	setFunc  = "$set("
+	fileFunc = "$file("
 	varExp   = "${"
 )
 
@@ -67,6 +71,7 @@ func getArg(ctxt Context, r *rand.Rand, arg string) string {
 	arg = evaluateSeqExpression(arg)
 	arg = evaluateRandExpression(r, arg)
 	arg = evaluatePadExpression(arg)
+	arg = evaluateFileExpression(arg)
 	arg = evaluateSetExpression(ctxt, arg)
 	arg = evaluateVarExpression(ctxt, arg)
 	return arg
@@ -114,6 +119,14 @@ func evaluatePadExpression(arg string) string {
 			}
 
 			return result, nil
+		})
+}
+
+// evaluateFileExpression replaces occurrences of $file(path) with the contents of the file
+func evaluateFileExpression(arg string) string {
+	return evaluateExpression(arg, fileFunc, ")",
+		func(expression string) (string, error) {
+			return readFile(expression)
 		})
 }
 
@@ -198,4 +211,24 @@ func (c *defaultContext) SetVar(k, v string) {
 func (c *defaultContext) GetVar(k string) (string, bool) {
 	value, ok := c.vars[k]
 	return value, ok
+}
+
+func readFile(filePath string) (string, error) {
+	fmt.Printf("Reading file: [%s]", filePath)
+	file, err := os.Open(filepath.Clean(filePath))
+	if err != nil {
+		return "", errors.Wrapf(err, "error opening file [%s]", filePath)
+	}
+	defer func() {
+		fileErr := file.Close()
+		if fileErr != nil {
+			cliconfig.Config().Logger().Errorf("Failed to close file : %s", fileErr)
+		}
+	}()
+
+	configBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return "", errors.Wrapf(err, "error reading config file [%s]", filePath)
+	}
+	return string(configBytes), nil
 }
