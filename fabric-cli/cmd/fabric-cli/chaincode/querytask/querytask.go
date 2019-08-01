@@ -8,6 +8,7 @@ package querytask
 
 import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel/invoke"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/securekey/fabric-examples/fabric-cli/action"
@@ -29,13 +30,14 @@ type Task struct {
 	printer       printer.Printer
 	verbose       bool
 	payloadOnly   bool
+	validate      bool
 	attempt       int
 	lastErr       error
 }
 
 // New creates a new query Task
 func New(ctxt utils.Context, id string, channelClient *channel.Client, targets []fab.Peer, args *action.ArgStruct, printer printer.Printer,
-	retryOpts retry.Opts, verbose bool, payloadOnly bool, startedCB func(), completedCB func(err error)) *Task {
+	retryOpts retry.Opts, verbose bool, payloadOnly bool, validate bool, startedCB func(), completedCB func(err error)) *Task {
 	return &Task{
 		ctxt:          ctxt,
 		id:            id,
@@ -49,6 +51,7 @@ func New(ctxt utils.Context, id string, channelClient *channel.Client, targets [
 		printer:       printer,
 		verbose:       verbose,
 		payloadOnly:   payloadOnly,
+		validate:      validate,
 	}
 }
 
@@ -64,14 +67,29 @@ func (t *Task) Invoke() {
 	if len(t.targets) > 0 {
 		opts = append(opts, channel.WithTargets(t.targets...))
 	}
-	if response, err := t.channelClient.Query(
-		channel.Request{
-			ChaincodeID: cliconfig.Config().ChaincodeID(),
-			Fcn:         t.args.Func,
-			Args:        utils.AsBytes(t.ctxt, t.args.Args),
-		},
-		opts...,
-	); err != nil {
+
+	request := channel.Request{
+		ChaincodeID: cliconfig.Config().ChaincodeID(),
+		Fcn:         t.args.Func,
+		Args:        utils.AsBytes(t.ctxt, t.args.Args),
+	}
+
+	var additionalHandlers []invoke.Handler
+	if t.validate {
+		// Add the validation handlers
+		additionalHandlers = append(additionalHandlers,
+			invoke.NewEndorsementValidationHandler(
+				invoke.NewSignatureValidationHandler(),
+			),
+		)
+	}
+
+	response, err := t.channelClient.InvokeHandler(
+		invoke.NewProposalProcessorHandler(
+			invoke.NewEndorsementHandler(additionalHandlers...),
+		),
+		request, opts...)
+	if err != nil {
 		cliconfig.Config().Logger().Debugf("(%s) - Error querying chaincode: %s\n", t.id, err)
 		t.lastErr = err
 		t.completedCB(err)

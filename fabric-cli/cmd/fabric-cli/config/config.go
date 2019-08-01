@@ -156,6 +156,10 @@ const (
 	printPayloadOnlyDescription = "If specified then only the payload from the transaction proposal response(s) will be output"
 	defaultPrintPayloadOnly     = "false"
 
+	ValidateFlag        = "validate"
+	validateDescription = "If specified then endorsement responses from queries will be validated"
+	defaultValidate     = "false"
+
 	ConcurrencyFlag        = "concurrency"
 	concurrencyDescription = "Specifies the number of concurrent requests sent on an invoke or a query chaincode request"
 	defaultConcurrency     = "1"
@@ -222,6 +226,7 @@ type options struct {
 	collectionConfigFile string
 	timeout              int64
 	printPayloadOnly     bool
+	validate             bool
 	concurrency          int
 	maxAttempts          int
 	initialBackoff       int64
@@ -663,6 +668,17 @@ func InitPrintPayloadOnly(flags *pflag.FlagSet, defaultValueAndDescription ...st
 	flags.BoolVar(&opts.printPayloadOnly, PrintPayloadOnlyFlag, defaultValue == "true", description)
 }
 
+// Validate indicates whether the endorsement responses from a query should be validated
+func (c *CLIConfig) Validate() bool {
+	return opts.validate
+}
+
+// InitValidate initializes the Validate flag from the provided arguments
+func InitValidate(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
+	defaultValue, description := getDefaultValueAndDescription(defaultValidate, validateDescription, defaultValueAndDescription...)
+	flags.BoolVar(&opts.validate, ValidateFlag, defaultValue == "true", description)
+}
+
 // Concurrency returns the number of concurrent invocations/queries
 func (c *CLIConfig) Concurrency() uint16 {
 	return uint16(opts.concurrency)
@@ -670,7 +686,7 @@ func (c *CLIConfig) Concurrency() uint16 {
 
 // InitConcurrency initializes the 'concurrency' flag from the provided arguments
 func InitConcurrency(flags *pflag.FlagSet, defaultValueAndDescription ...string) {
-	defaultValue, description := getDefaultValueAndDescription(defaultConcurrency, traverseDescription, defaultValueAndDescription...)
+	defaultValue, description := getDefaultValueAndDescription(defaultConcurrency, concurrencyDescription, defaultValueAndDescription...)
 	i, err := strconv.Atoi(defaultValue)
 	if err != nil {
 		fmt.Printf("Invalid number for %s: %s\n", TimeoutFlag, defaultValue)

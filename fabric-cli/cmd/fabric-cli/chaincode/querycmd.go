@@ -64,6 +64,7 @@ func getQueryCmd() *cobra.Command {
 	cliconfig.InitConcurrency(flags)
 	cliconfig.InitVerbosity(flags)
 	cliconfig.InitSelectionProvider(flags)
+	cliconfig.InitValidate(flags)
 	return queryCmd
 }
 
@@ -127,7 +128,9 @@ func (a *queryAction) query() error {
 					BackoffFactor:  cliconfig.Config().BackoffFactor(),
 					RetryableCodes: retry.ChannelClientRetryableCodes,
 				},
-				verbose, cliconfig.Config().PrintPayloadOnly(),
+				verbose,
+				cliconfig.Config().PrintPayloadOnly(),
+				cliconfig.Config().Validate(),
 				func() {
 					startTime = time.Now()
 				},
