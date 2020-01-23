@@ -8,14 +8,15 @@ package chaincode
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/action"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -86,7 +87,9 @@ func (action *getInfoAction) invoke() error {
 
 	collConfig, err := action.getCollConfig(channelClient)
 	if err != nil {
-		return errors.WithMessagef(err, "error querying for collection config")
+		if !strings.Contains(errors.Cause(err).Error(), "collections config not defined for chaincode") {
+			return errors.WithMessagef(err, "error querying for collection config")
+		}
 	}
 
 	action.Printer().PrintChaincodeData(ccData, collConfig)
@@ -117,7 +120,7 @@ func (action *getInfoAction) getCCData(channelClient *channel.Client) (*ccprovid
 	return ccData, nil
 }
 
-func (action *getInfoAction) getCollConfig(channelClient *channel.Client) (*common.CollectionConfigPackage, error) {
+func (action *getInfoAction) getCollConfig(channelClient *channel.Client) (*pb.CollectionConfigPackage, error) {
 	var args [][]byte
 	args = append(args, []byte(cliconfig.Config().ChaincodeID()))
 
@@ -131,7 +134,7 @@ func (action *getInfoAction) getCollConfig(channelClient *channel.Client) (*comm
 		return nil, errors.Errorf("error querying for collections config: %v", err)
 	}
 
-	collConfig := &common.CollectionConfigPackage{}
+	collConfig := &pb.CollectionConfigPackage{}
 	err = proto.Unmarshal(response.Payload, collConfig)
 	if err != nil {
 		return nil, errors.Errorf("error unmarshalling collections config: %v", err)

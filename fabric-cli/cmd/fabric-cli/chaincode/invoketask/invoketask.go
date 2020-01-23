@@ -7,17 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package invoketask
 
 import (
+	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
-	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/action"
-	"github.com/securekey/fabric-examples/fabric-cli/chaincode/invokeerror"
-	"github.com/securekey/fabric-examples/fabric-cli/chaincode/utils"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/executor"
-	"github.com/securekey/fabric-examples/fabric-cli/printer"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/invokeerror"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/executor"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/printer"
 )
 
 // Task is a Task that invokes a chaincode

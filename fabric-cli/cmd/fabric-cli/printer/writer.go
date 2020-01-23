@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	config "github.com/securekey/fabric-examples/fabric-cli/config"
+	config "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 )
 
 // WriterType specifies the format for printing data

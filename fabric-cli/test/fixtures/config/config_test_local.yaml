@@ -177,8 +177,8 @@ organizations:
     # runtime network. Fabric-CA is a special certificate authority that provides a REST APIs for
     # dynamic certificate management (enroll, revoke, re-enroll). The following section is only for
     # Fabric-CA servers.
-    certificateAuthorities:
-      - local.ca.org1.example.com
+#    certificateAuthorities:
+#      - local.ca.org1.example.com
 
   # the profile will contain public information about organizations other than the one it belongs to.
   # These are necessary information to make transaction lifecycles work, including MSP IDs and
@@ -195,8 +195,8 @@ organizations:
       - local.peer0.org2.example.com
       - local.peer1.org2.example.com
 
-    certificateAuthorities:
-      - local.ca.org2.example.com
+#    certificateAuthorities:
+#      - local.ca.org2.example.com
 
   # Orderer Org name
   ordererorg:
@@ -394,11 +394,11 @@ entityMatchers:
       sslTargetOverrideUrlSubstitutionExp: orderer.example.com
       mappedHost: local.orderer.example.com
 
-#   certificateAuthority:
-#     - pattern: (\w+).org1.example.(\w+)
-#       urlSubstitutionExp: https://localhost:7054
-#       mappedHost: local.ca.org1.example.com
-
-#     - pattern: (\w+).org2.example.(\w+)
-#       urlSubstitutionExp: https://localhost:8054
-#       mappedHost: local.ca.org2.example.com
+#  certificateAuthority:
+#    - pattern: (\w+).org1.example.(\w+)
+#      urlSubstitutionExp: https://localhost:7054
+#      mappedHost: local.ca.org1.example.com
+#
+#    - pattern: (\w+).org2.example.(\w+)
+#      urlSubstitutionExp: https://localhost:8054
+#      mappedHost: local.ca.org2.example.com

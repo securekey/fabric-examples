@@ -34,8 +34,8 @@ import (
 	cryptosuiteimpl "github.com/hyperledger/fabric-sdk-go/pkg/core/cryptosuite/bccsp/multisuite"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fab/orderer"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/printer"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/printer"
 	"github.com/spf13/pflag"
 )
 
@@ -83,7 +83,6 @@ func (action *Action) Initialize(flags *pflag.FlagSet) error {
 		opts = append(opts, fabsdk.WithServicePkg(svcPackage))
 	}
 	opts = append(opts, fabsdk.WithCorePkg(&cryptoSuiteProviderFactory{}))
-
 
 	sdk, err := fabsdk.New(cliconfig.Provider(), opts...)
 	if err != nil {

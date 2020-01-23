@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk/factory/defsvc"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk/provider/chpvdr"
 	"github.com/pkg/errors"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 )
 
 // serviceProviderFactory is configured with either static or dynamic selection provider

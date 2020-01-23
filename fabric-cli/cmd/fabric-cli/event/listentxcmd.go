@@ -10,8 +10,8 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/action"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/executor/worker"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/executor/worker"
 )
 
 // State is the state of the executor

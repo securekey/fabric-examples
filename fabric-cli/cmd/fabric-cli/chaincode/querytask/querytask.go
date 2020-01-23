@@ -11,10 +11,10 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel/invoke"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
-	"github.com/securekey/fabric-examples/fabric-cli/action"
-	"github.com/securekey/fabric-examples/fabric-cli/chaincode/utils"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/printer"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/printer"
 )
 
 // Task is the query task

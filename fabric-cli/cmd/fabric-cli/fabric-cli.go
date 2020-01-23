@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
-	"github.com/securekey/fabric-examples/fabric-cli/cmd"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/cmd"
 )
 
 func main() {

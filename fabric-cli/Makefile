@@ -21,7 +21,7 @@ DOCKER_COMPOSE_CMD ?= docker-compose
 
 # fabric-sdk-go version (overridable)
 FABRIC_SDK_GO_BRANCH    ?= master
-FABRIC_SDK_GO_COMMIT    ?= 5a9a0e749e4fe85cca3ce880749f1498ad55fa6c
+FABRIC_SDK_GO_COMMIT    ?= 8f3d32c9d1a66f88d405c9f5335870c5277f773a
 
 # Test fixture paths
 FIXTURE_DOCKERENV_PATH := fabric-sdk-go/test/fixtures/dockerenv

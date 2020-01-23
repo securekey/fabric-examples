@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 )
 
 // Pool contains a pool of workers that can each execute a Task

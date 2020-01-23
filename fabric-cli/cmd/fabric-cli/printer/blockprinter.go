@@ -14,15 +14,15 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	fabriccmn "github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
+	"github.com/hyperledger/fabric-protos-go/msp"
+	ab "github.com/hyperledger/fabric-protos-go/orderer"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	ledgerUtil "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/core/ledger/util"
-	fabriccmn "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/ledger/rwset/kvrwset"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/msp"
-	ab "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/orderer"
-	pb "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/peer"
 	"github.com/pkg/errors"
 )
 
@@ -102,7 +102,7 @@ type Printer interface {
 	PrintProcessedTransaction(tx *pb.ProcessedTransaction)
 
 	// PrintChaincodeData outputs ChaincodeData
-	PrintChaincodeData(ccdata *ccprovider.ChaincodeData, collConfig *fabriccmn.CollectionConfigPackage)
+	PrintChaincodeData(ccdata *ccprovider.ChaincodeData, collConfig *pb.CollectionConfigPackage)
 
 	// PrintTxProposalResponses outputs the proposal responses
 	PrintTxProposalResponses(responses []*fab.TransactionProposalResponse, payloadOnly bool)
@@ -269,7 +269,7 @@ func (p *BlockPrinter) PrintProcessedTransaction(tx *pb.ProcessedTransaction) {
 }
 
 // PrintChaincodeData prints the given ChaincodeData
-func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData, collConfig *fabriccmn.CollectionConfigPackage) {
+func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData, collConfig *pb.CollectionConfigPackage) {
 	if p.Formatter == nil {
 		fmt.Printf("%s\n", ccData)
 		return
@@ -277,7 +277,9 @@ func (p *BlockPrinter) PrintChaincodeData(ccData *ccprovider.ChaincodeData, coll
 
 	p.PrintHeader()
 	p.doPrintChaincodeData(ccData)
-	p.doPrintCollConfig(collConfig)
+	if collConfig != nil {
+		p.doPrintCollConfig(collConfig)
+	}
 	p.PrintFooter()
 }
 
@@ -307,7 +309,7 @@ func (p *BlockPrinter) doPrintChaincodeData(ccData *ccprovider.ChaincodeData) {
 	p.ElementEnd()
 }
 
-func (p *BlockPrinter) doPrintCollConfig(collConfig *fabriccmn.CollectionConfigPackage) {
+func (p *BlockPrinter) doPrintCollConfig(collConfig *pb.CollectionConfigPackage) {
 	p.Array("CollectionConfig")
 	for i, c := range collConfig.Config {
 		p.Item("Config", i)
@@ -322,7 +324,7 @@ func (p *BlockPrinter) doPrintCollConfig(collConfig *fabriccmn.CollectionConfigP
 	p.ArrayEnd()
 }
 
-func (p *BlockPrinter) printStaticCollectionConfig(config *fabriccmn.StaticCollectionConfig) {
+func (p *BlockPrinter) printStaticCollectionConfig(config *pb.StaticCollectionConfig) {
 	p.Field("Name", config.Name)
 	p.Field("BlockToLive", config.BlockToLive)
 	p.Field("MaximumPeerCount", config.MaximumPeerCount)
@@ -506,7 +508,6 @@ func (p *BlockPrinter) PrintChaincodeHeaderExtension(ccHdrExt *pb.ChaincodeHeade
 	p.Element("ChaincodeId")
 	p.PrintChaincodeID(ccHdrExt.ChaincodeId)
 	p.ElementEnd()
-	p.Field("PayloadVisibility", ccHdrExt.PayloadVisibility)
 }
 
 // PrintChaincodeID prints the ChaincodeID
@@ -968,7 +969,7 @@ func (p *BlockPrinter) printChaincodeData(value []byte) {
 }
 
 func (p *BlockPrinter) printCollectionConfig(value []byte) {
-	cp := &fabriccmn.CollectionConfigPackage{}
+	cp := &pb.CollectionConfigPackage{}
 	err := proto.Unmarshal(value, cp)
 	if err != nil {
 		fmt.Printf("Error unmarshalling collection config from lscc KV WriteSet: %s", err)

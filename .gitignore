@@ -10,3 +10,4 @@
 debug.test
 vendor/
 .idea/
+/fabric-cli/cmd/fabric-cli/fabric-cli

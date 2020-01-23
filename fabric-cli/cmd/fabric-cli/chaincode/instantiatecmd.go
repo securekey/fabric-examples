@@ -12,13 +12,14 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/hyperledger/fabric-protos-go/common"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/action"
-	"github.com/securekey/fabric-examples/fabric-cli/chaincode/utils"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -103,7 +104,7 @@ func (a *instantiateAction) invoke() error {
 
 	// Private Data Collection Configuration
 	// - see fixtures/config/pvtdatacollection.json for sample config file
-	var collConfig []*common.CollectionConfig
+	var collConfig []*pb.CollectionConfig
 	collConfigFile := cliconfig.Config().CollectionConfigFile()
 	if collConfigFile != "" {
 		collConfig, err = getCollectionConfigFromFile(cliconfig.Config().CollectionConfigFile())
@@ -162,7 +163,7 @@ type collectionConfigJSON struct {
 	MaxPeerCount      int32  `json:"maxPeerCount"`
 }
 
-func getCollectionConfigFromFile(ccFile string) ([]*common.CollectionConfig, error) {
+func getCollectionConfigFromFile(ccFile string) ([]*pb.CollectionConfig, error) {
 	fileBytes, err := ioutil.ReadFile(ccFile)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read file [%s]", ccFile)
@@ -174,21 +175,21 @@ func getCollectionConfigFromFile(ccFile string) ([]*common.CollectionConfig, err
 	return getCollectionConfig(*cconf)
 }
 
-func getCollectionConfig(cconf []collectionConfigJSON) ([]*common.CollectionConfig, error) {
-	ccarray := make([]*common.CollectionConfig, 0, len(cconf))
+func getCollectionConfig(cconf []collectionConfigJSON) ([]*pb.CollectionConfig, error) {
+	ccarray := make([]*pb.CollectionConfig, 0, len(cconf))
 	for _, cconfitem := range cconf {
 		p, err := cauthdsl.FromString(cconfitem.Policy)
 		if err != nil {
 			return nil, errors.WithMessage(err, fmt.Sprintf("invalid policy %s", cconfitem.Policy))
 		}
-		cpc := &common.CollectionPolicyConfig{
-			Payload: &common.CollectionPolicyConfig_SignaturePolicy{
+		cpc := &pb.CollectionPolicyConfig{
+			Payload: &pb.CollectionPolicyConfig_SignaturePolicy{
 				SignaturePolicy: p,
 			},
 		}
-		cc := &common.CollectionConfig{
-			Payload: &common.CollectionConfig_StaticCollectionConfig{
-				StaticCollectionConfig: &common.StaticCollectionConfig{
+		cc := &pb.CollectionConfig{
+			Payload: &pb.CollectionConfig_StaticCollectionConfig{
+				StaticCollectionConfig: &pb.StaticCollectionConfig{
 					Name:              cconfitem.Name,
 					MemberOrgsPolicy:  cpc,
 					RequiredPeerCount: cconfitem.RequiredPeerCount,

@@ -11,14 +11,14 @@ import (
 	"fmt"
 	"strings"
 
+	fabricCommon "github.com/hyperledger/fabric-protos-go/common"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	fabricCommon "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	"github.com/pkg/errors"
-	"github.com/securekey/fabric-examples/fabric-cli/action"
-	"github.com/securekey/fabric-examples/fabric-cli/chaincode/utils"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode/utils"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -102,7 +102,7 @@ func (a *upgradeAction) invoke() error {
 
 	// Private Data Collection Configuration
 	// - see fixtures/config/pvtdatacollection.json for sample config file
-	var collConfig []*common.CollectionConfig
+	var collConfig []*pb.CollectionConfig
 	collConfigFile := cliconfig.Config().CollectionConfigFile()
 	if collConfigFile != "" {
 		collConfig, err = getCollectionConfigFromFile(cliconfig.Config().CollectionConfigFile())

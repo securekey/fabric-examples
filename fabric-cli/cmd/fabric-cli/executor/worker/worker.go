@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package worker
 
 import (
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
 )
 
 // State is the state of a Worker

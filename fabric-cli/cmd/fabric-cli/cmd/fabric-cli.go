@@ -9,11 +9,11 @@ package cmd
 import (
 	"os"
 
-	"github.com/securekey/fabric-examples/fabric-cli/chaincode"
-	"github.com/securekey/fabric-examples/fabric-cli/channel"
-	cliconfig "github.com/securekey/fabric-examples/fabric-cli/config"
-	"github.com/securekey/fabric-examples/fabric-cli/event"
-	"github.com/securekey/fabric-examples/fabric-cli/query"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/chaincode"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/channel"
+	cliconfig "github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/config"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/event"
+	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/query"
 	"github.com/spf13/cobra"
 )
 
